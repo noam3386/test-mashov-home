@@ -167,16 +167,30 @@ async function syncMashov() {
       if (hatamotRes.status   === "rejected") log("⚠️", `ציוד לא זמין: ${hatamotRes.reason?.response?.status}`);
       if (timetableRes.status === "rejected") log("⚠️", `מערכת שעות לא זמינה: ${timetableRes.reason?.response?.status}`);
 
-      const batch = db.batch();
-      let newCount = 0;
+      // Commit an array of writes split into chunks of 400 (Firestore limit = 500)
+      async function commitInChunks(writes) {
+        for (let i = 0; i < writes.length; i += 400) {
+          const b = db.batch();
+          writes.slice(i, i + 400).forEach(({ ref, data }) => b.set(ref, data));
+          await b.commit();
+        }
+      }
 
-      // Behavior events
+      // Fetch existing docIds to avoid overwriting (one parallel read per collection)
+      const existingSnap = await db.collection("schoolUpdates")
+        .where("memberId", "==", student.memberId)
+        .select() // no fields needed, just doc IDs
+        .get();
+      const existingIds = new Set(existingSnap.docs.map(d => d.id));
+
+      const writes = [];
+
+      // Behavior events (write only new)
       for (const b of behave) {
         const dateKey = (b.timestamp ?? b.lessonDate ?? "").slice(0, 10);
         const docId = `behave_${student.memberId}_${b.lessonId ?? b.groupId}_${dateKey}`;
-        const ref = db.collection("schoolUpdates").doc(docId);
-        if (!(await ref.get()).exists) {
-          batch.set(ref, {
+        if (!existingIds.has(docId)) {
+          writes.push({ ref: db.collection("schoolUpdates").doc(docId), data: {
             memberId: student.memberId, type: "behavior",
             eventCode: b.eventCode ?? 0,
             categoryName: b.categoryName ?? b.eventType ?? "",
@@ -185,17 +199,15 @@ async function syncMashov() {
             teacherName: b.reporterName ?? "",
             eventDate: new Date(b.timestamp ?? b.lessonDate),
             fetchedAt: FieldValue.serverTimestamp(), read: false,
-          });
-          newCount++;
+          }});
         }
       }
 
-      // Homework assignments (use lessonId as unique key)
+      // Homework (write only new — docId per lessonId is stable)
       for (const h of homework) {
         const docId = `hw_${student.memberId}_${h.lessonId}`;
-        const ref = db.collection("schoolUpdates").doc(docId);
-        if (!(await ref.get()).exists) {
-          batch.set(ref, {
+        if (!existingIds.has(docId)) {
+          writes.push({ ref: db.collection("schoolUpdates").doc(docId), data: {
             memberId: student.memberId, type: "homework",
             subject: h.subjectName ?? "",
             title: h.subjectName ?? "",
@@ -204,45 +216,44 @@ async function syncMashov() {
             teacherName: h.teacherName ?? "",
             eventDate: new Date(h.lessonDate ?? Date.now()),
             fetchedAt: FieldValue.serverTimestamp(), read: false,
-          });
-          newCount++;
+          }});
         }
       }
 
-      // Equipment / Hatamot (overwrite — may change daily)
+      // Equipment / Hatamot (always overwrite — may change)
       for (const item of hatamot) {
         const docId = `hat_${student.memberId}_${item.code ?? item.name?.slice(0,10)}`;
-        batch.set(db.collection("schoolUpdates").doc(docId), {
+        writes.push({ ref: db.collection("schoolUpdates").doc(docId), data: {
           memberId: student.memberId, type: "hatamot",
           title: item.name ?? "",
           body: item.remark ?? "",
           eventDate: new Date(),
           fetchedAt: FieldValue.serverTimestamp(), read: true,
-        });
-        newCount++;
+        }});
       }
 
+      await commitInChunks(writes);
+      const newCount = writes.length;
+
       // Timetable (overwrite all — store in separate collection)
-      const ttBatch = db.batch();
-      for (const entry of timetable) {
+      const ttWrites = timetable.map(entry => {
         const tt = entry.timeTable ?? entry;
         const gd = entry.groupDetails ?? {};
         const docId = `tt_${student.memberId}_d${tt.day}_l${tt.lesson}`;
-        ttBatch.set(db.collection("timetable").doc(docId), {
+        return { ref: db.collection("timetable").doc(docId), data: {
           memberId: student.memberId,
           day: tt.day, lesson: tt.lesson, roomNum: tt.roomNum ?? "",
           subjectName: gd.subjectName ?? tt.subjectName ?? "",
           groupName: gd.groupName ?? "",
           teacherName: gd.groupTeachers?.[0]?.teacherName ?? "",
           updatedAt: FieldValue.serverTimestamp(),
-        });
-      }
-      if (timetable.length > 0) {
-        await ttBatch.commit();
-        log("📋", `מערכת שעות: ${timetable.length} שיעורים עודכנו`);
+        }};
+      });
+      if (ttWrites.length > 0) {
+        await commitInChunks(ttWrites);
+        log("📋", `מערכת שעות: ${ttWrites.length} שיעורים עודכנו`);
       }
 
-      await batch.commit();
       await axios.post(`${MASHOV_BASE}/logout`, {}, { headers }).catch(() => {});
       log("✅", `מחוון ${student.memberId}: ${newCount} רשומות חדשות`);
 
