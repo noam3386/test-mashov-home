@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { where, Timestamp } from "firebase/firestore";
-import { startOfWeek, endOfWeek, format, isToday, isTomorrow } from "date-fns";
+import {
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, addMonths, format, isToday, isSameMonth,
+} from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 
@@ -7,111 +11,127 @@ interface ScheduleEvent {
   id: string;
   title: string;
   startTime: Timestamp;
-  endTime: Timestamp;
   category: string;
   allDay: boolean;
 }
 
-const categoryStyle: Record<string, string> = {
-  chug:        "bg-purple-100 text-purple-700 border-purple-200",
-  school:      "bg-blue-100 text-blue-700 border-blue-200",
-  family:      "bg-green-100 text-green-700 border-green-200",
-  appointment: "bg-amber-100 text-amber-700 border-amber-200",
+const CAT_COLOR: Record<string, string> = {
+  chug:        "bg-purple-400",
+  school:      "bg-blue-400",
+  family:      "bg-green-400",
+  appointment: "bg-amber-400",
 };
 
-const categoryIcon: Record<string, string> = {
-  chug: "🏃", school: "📚", family: "👨‍👩‍👧", appointment: "🏥",
-};
-
-function dayLabel(date: Date): string {
-  if (isToday(date))    return "היום";
-  if (isTomorrow(date)) return "מחר";
-  return format(date, "EEEE d/M", { locale: he });
-}
+const DAY_NAMES = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 
 export function CalendarTile() {
-  const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 0 });
-  const weekEnd   = endOfWeek(now,   { weekStartsOn: 0 });
+  const [viewMonth, setViewMonth] = useState(new Date());
 
-  const { data: events, loading } = useRealtimeCollection<ScheduleEvent>("schedule", [
-    where("startTime", ">=", Timestamp.fromDate(weekStart)),
-    where("startTime", "<=", Timestamp.fromDate(weekEnd)),
+  const monthStart = startOfMonth(viewMonth);
+  const monthEnd   = endOfMonth(viewMonth);
+  const calStart   = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calEnd     = endOfWeek(monthEnd,     { weekStartsOn: 0 });
+  const days       = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const { data: events } = useRealtimeCollection<ScheduleEvent>("schedule", [
+    where("startTime", ">=", Timestamp.fromDate(calStart)),
+    where("startTime", "<=", Timestamp.fromDate(calEnd)),
   ]);
 
-  // Group by day
+  // Group events by date string
   const byDay = new Map<string, ScheduleEvent[]>();
-  [...events]
-    .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis())
-    .forEach((ev) => {
-      const key = format(ev.startTime.toDate(), "yyyy-MM-dd");
-      if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key)!.push(ev);
-    });
+  events.forEach((ev) => {
+    const key = format(ev.startTime.toDate(), "yyyy-MM-dd");
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key)!.push(ev);
+  });
+
+  const weeks: Date[][] = [];
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
   return (
     <div className="tile h-full flex flex-col">
-      <div className="tile-title">📅 לוח שבועי</div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <button
+          onClick={() => setViewMonth(m => addMonths(m, 1))}
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none"
+        >‹</button>
+        <span className="font-bold text-gray-700 text-sm">
+          {format(viewMonth, "MMMM yyyy", { locale: he })}
+        </span>
+        <button
+          onClick={() => setViewMonth(m => addMonths(m, -1))}
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none"
+        >›</button>
+      </div>
 
-      {loading ? <Skeleton /> : byDay.size === 0 ? (
-        <p className="text-gray-400 text-sm text-center mt-8">אין אירועים השבוע</p>
-      ) : (
-        <div className="flex-1 overflow-y-auto space-y-3">
-          {[...byDay.entries()].map(([dateKey, dayEvents]) => {
-            const date = new Date(dateKey + "T12:00:00");
-            const todayDay = isToday(date);
-            return (
-              <div key={dateKey}>
-                {/* Day header */}
-                <div className={`flex items-center gap-2 mb-1.5 ${todayDay ? "text-blue-600" : "text-gray-400"}`}>
-                  <span className={`text-xs font-bold uppercase tracking-wider ${todayDay ? "text-blue-600" : "text-gray-400"}`}>
-                    {dayLabel(date)}
-                  </span>
-                  <div className="flex-1 h-px bg-gray-100" />
-                </div>
+      {/* Day name row */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAY_NAMES.map((d) => (
+          <div key={d} className="text-center text-xs font-semibold text-gray-400 py-0.5">{d}</div>
+        ))}
+      </div>
 
-                {/* Events for this day */}
-                <div className="space-y-1">
-                  {dayEvents.map((ev) => {
-                    const style = categoryStyle[ev.category] ?? categoryStyle.family;
-                    const icon  = categoryIcon[ev.category] ?? "📌";
-                    return (
-                      <div key={ev.id} className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 border text-xs ${style}`}>
-                        <span>{icon}</span>
-                        <span className="w-10 flex-shrink-0 font-medium">
-                          {ev.allDay ? "כל היום" : format(ev.startTime.toDate(), "HH:mm")}
-                        </span>
-                        <span className="truncate font-medium">{ev.title}</span>
-                        {!ev.allDay && (
-                          <span className="mr-auto flex-shrink-0 opacity-60">
-                            עד {format(ev.endTime.toDate(), "HH:mm")}
-                          </span>
-                        )}
+      {/* Calendar grid */}
+      <div className="flex-1 flex flex-col gap-0.5">
+        {weeks.map((week, wi) => (
+          <div key={wi} className="grid grid-cols-7 flex-1 gap-0.5">
+            {week.map((day) => {
+              const key    = format(day, "yyyy-MM-dd");
+              const dayEvs = byDay.get(key) ?? [];
+              const today  = isToday(day);
+              const inMonth= isSameMonth(day, viewMonth);
+              return (
+                <div
+                  key={key}
+                  className={`rounded-lg p-1 flex flex-col min-h-0 ${
+                    today   ? "bg-blue-50 ring-1 ring-blue-300" :
+                    inMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50"
+                  }`}
+                >
+                  {/* Day number */}
+                  <div className={`text-xs font-semibold mb-0.5 text-center leading-none ${
+                    today   ? "text-blue-600" :
+                    inMonth ? "text-gray-700" : "text-gray-300"
+                  }`}>
+                    {format(day, "d")}
+                  </div>
+
+                  {/* Event dots / labels */}
+                  <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-hidden">
+                    {dayEvs.slice(0, 3).map((ev) => (
+                      <div
+                        key={ev.id}
+                        className={`rounded text-white text-center leading-none px-0.5 py-0.5 truncate ${CAT_COLOR[ev.category] ?? "bg-gray-400"}`}
+                        style={{ fontSize: "0.55rem" }}
+                        title={ev.title}
+                      >
+                        {ev.title}
                       </div>
-                    );
-                  })}
+                    ))}
+                    {dayEvs.length > 3 && (
+                      <div className="text-gray-400 text-center leading-none" style={{ fontSize: "0.55rem" }}>
+                        +{dayEvs.length - 3}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div className="space-y-3">
-      {[...Array(3)].map((_, i) => (
-        <div key={i}>
-          <div className="skeleton h-4 w-24 mb-2" />
-          <div className="space-y-1">
-            <div className="skeleton h-7 w-full" />
-            <div className="skeleton h-7 w-full" />
+              );
+            })}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-3 justify-center mt-1.5 flex-wrap">
+        {[["chug","חוג"],["school","בית ספר"],["family","משפחה"],["appointment","פגישה"]].map(([cat, label]) => (
+          <div key={cat} className="flex items-center gap-1">
+            <div className={`w-2 h-2 rounded-full ${CAT_COLOR[cat]}`} />
+            <span className="text-xs text-gray-400">{label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
