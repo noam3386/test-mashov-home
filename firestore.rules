@@ -12,33 +12,31 @@ service cloud.firestore {
         get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'parent';
     }
 
-    match /members/{memberId} {
-      allow read: if isAuth();
-      allow write: if isParent();
-    }
-
-    match /tasks/{taskId} {
-      allow read: if isAuth();
-      allow create, delete: if isParent();
-      allow update: if isAuth() && (
-        isParent() ||
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'completedAt', 'completedBy', 'updatedAt'])
-      );
-    }
-
+    // תצוגה ציבורית — קריאה חופשית (דשבורד ביתי)
     match /schedule/{eventId} {
-      allow read: if isAuth();
+      allow read: if true;
       allow write: if false;
     }
 
     match /schoolUpdates/{updateId} {
-      allow read: if isAuth();
+      allow read: if true;
       allow update: if isAuth() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow create, delete: if false;
     }
 
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow create, delete: if isParent();
+      allow update: if isAuth() || isParent();
+    }
+
+    match /members/{memberId} {
+      allow read: if true;
+      allow write: if isParent();
+    }
+
+    // config — רק Admin SDK
     match /config/{configId} {
       allow read: if isParent();
       allow write: if false;
