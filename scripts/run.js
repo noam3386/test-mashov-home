@@ -24,10 +24,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const CALENDAR_ID   = "family13278164042447766357@group.calendar.google.com";
-const MEMBER_IDS    = ["uid_aviv"];
-const CALENDAR_SYNC_INTERVAL_MS  = 60  * 60 * 1000; // 60 min
-const MASHOV_SYNC_INTERVAL_MS    = 120 * 60 * 1000; // 120 min
+const CALENDARS = [
+  { id: "family13278164042447766357@group.calendar.google.com", memberIds: ["uid_aviv"] },
+  // { id: "SHISHIGAM_CALENDAR_ID@group.calendar.google.com",    memberIds: ["uid_aviv"] }, // ← שישיגם (להוסיף)
+];
+const CALENDAR_SYNC_INTERVAL_MS  = 60  * 60 * 1000; // 60 דקות
+const MASHOV_SYNC_INTERVAL_MS    = 120 * 60 * 1000; // 120 דקות
 
 const MASHOV_BASE = "https://web.mashov.info/api";
 const USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -60,7 +62,7 @@ function log(emoji, msg) {
 // ─── Google Calendar Sync ─────────────────────────────────────────────────────
 
 async function syncCalendar() {
-  log("📅", "מסנכרן יומן Google...");
+  log("📅", `מסנכרן ${CALENDARS.length} יומנים...`);
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(readFileSync(saPath, "utf8")),
@@ -72,36 +74,41 @@ async function syncCalendar() {
     const timeMin = new Date(now.getTime() - 7  * 86400000).toISOString();
     const timeMax = new Date(now.getTime() + 30 * 86400000).toISOString();
 
-    const res = await calendar.events.list({
-      calendarId: CALENDAR_ID,
-      timeMin, timeMax,
-      singleEvents: true,
-      orderBy: "startTime",
-      maxResults: 250,
-    });
-
-    const events = res.data.items ?? [];
+    let totalEvents = 0;
     const batch = db.batch();
 
-    for (const ev of events) {
-      if (!ev.id) continue;
-      const docId = "gcal_" + ev.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
-      const isAllDay = Boolean(ev.start?.date && !ev.start?.dateTime);
-      batch.set(db.collection("schedule").doc(docId), {
-        source:     "google_calendar",
-        externalId: ev.id,
-        title:      ev.summary ?? "(ללא כותרת)",
-        memberId:   MEMBER_IDS,
-        startTime:  isAllDay ? new Date(ev.start.date + "T00:00:00") : new Date(ev.start.dateTime),
-        endTime:    isAllDay ? new Date(ev.end.date   + "T23:59:59") : new Date(ev.end.dateTime),
-        allDay:     isAllDay,
-        category:   CATEGORY_BY_COLOR[ev.colorId] ?? "family",
-        updatedAt:  new Date(),
+    for (const cal of CALENDARS) {
+      const res = await calendar.events.list({
+        calendarId: cal.id,
+        timeMin, timeMax,
+        singleEvents: true,
+        orderBy: "startTime",
+        maxResults: 250,
       });
+
+      const events = res.data.items ?? [];
+      totalEvents += events.length;
+
+      for (const ev of events) {
+        if (!ev.id) continue;
+        const docId = "gcal_" + ev.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+        const isAllDay = Boolean(ev.start?.date && !ev.start?.dateTime);
+        batch.set(db.collection("schedule").doc(docId), {
+          source:     "google_calendar",
+          externalId: ev.id,
+          title:     ev.summary ?? "(ללא כותרת)",
+          memberId:  cal.memberIds,
+          startTime: isAllDay ? new Date(ev.start.date + "T00:00:00") : new Date(ev.start.dateTime),
+          endTime:   isAllDay ? new Date(ev.end.date   + "T23:59:59") : new Date(ev.end.dateTime),
+          allDay:    isAllDay,
+          category:  CATEGORY_BY_COLOR[ev.colorId] ?? "family",
+          updatedAt: new Date(),
+        });
+      }
     }
 
     await batch.commit();
-    log("✅", `יומן: ${events.length} אירועים עודכנו`);
+    log("✅", `יומן: ${totalEvents} אירועים עודכנו`);
   } catch (err) {
     log("❌", `יומן נכשל: ${err.message}`);
   }
@@ -111,8 +118,8 @@ async function syncCalendar() {
 
 async function syncMashov() {
   const day = new Date().getDay(); // 0=Sun ... 6=Sat
-  if (day === 5 || day === 6) {
-    log("⏭️", "מחוון: דילוג (סוף שבוע)");
+  if (day === 6) { // שבת בלבד
+    log("⏭️", "מחוון: דילוג (שבת)");
     return;
   }
 
