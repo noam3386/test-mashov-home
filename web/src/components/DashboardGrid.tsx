@@ -39,6 +39,8 @@ export function DashboardGrid() {
         <TasksTile mode="week" />
         <ChuggimTile />
       </div>
+
+      <div className="text-center text-gray-300 text-xs mt-2">v1.3 — {new Date().toLocaleString("he-IL")}</div>
     </div>
   );
 }
