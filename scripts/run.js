@@ -143,18 +143,28 @@ async function syncMashov() {
 
       const csrfToken = loginRes.headers["x-csrf-token"];
       const cookies   = (await jar.getCookies(MASHOV_BASE)).map(c => `${c.key}=${c.value}`).join("; ");
-      const studentId = String(loginRes.data?.students?.[0]?.pupilId ?? student.username);
+      // Use GUID from credential.userId, not idNumber
+      const studentId = loginRes.data?.credential?.userId
+        ?? loginRes.data?.accessToken?.children?.[0]?.childGuid
+        ?? student.username;
       const headers   = { "User-Agent": USER_AGENT, "Cookie": cookies, "X-Csrf-Token": csrfToken, "X-Requested-With": "XMLHttpRequest" };
 
-      const [gradesRes, msgsRes] = await Promise.all([
+      log("🔑", `studentId: ${studentId}`);
+
+      // Try grades (may be denied by school), always try messages
+      const [gradesRes, msgsRes] = await Promise.allSettled([
         axios.get(`${MASHOV_BASE}/students/${studentId}/grades`, { headers }),
         axios.get(`${MASHOV_BASE}/messages`, { params: { folder: 1, page: 1, pageSize: 30 }, headers }),
       ]);
+      const grades = gradesRes.status === "fulfilled" ? gradesRes.value.data : [];
+      const msgs   = msgsRes.status   === "fulfilled" ? msgsRes.value.data   : [];
+      if (gradesRes.status === "rejected") log("⚠️", `ציונים לא זמינים: ${gradesRes.reason?.response?.status}`);
+      if (msgsRes.status   === "rejected") log("⚠️", `הודעות לא זמינות: ${msgsRes.reason?.response?.status}`);
 
       const batch = db.batch();
       let newCount = 0;
 
-      for (const g of (gradesRes.data ?? [])) {
+      for (const g of (grades ?? [])) {
         const docId = `grade_${student.memberId}_${g.gradingEventId}_${g.eventDate?.slice(0,10)}`;
         const ref = db.collection("schoolUpdates").doc(docId);
         if (!(await ref.get()).exists) {
@@ -165,7 +175,7 @@ async function syncMashov() {
           newCount++;
         }
       }
-      for (const m of (msgsRes.data ?? [])) {
+      for (const m of (msgs ?? [])) {
         const docId = `msg_${student.memberId}_${m.id}`;
         const ref = db.collection("schoolUpdates").doc(docId);
         if (!(await ref.get()).exists) {
