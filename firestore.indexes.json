@@ -34,6 +34,30 @@
         { "fieldPath": "read", "order": "ASCENDING" },
         { "fieldPath": "fetchedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "schoolUpdates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "eventDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "schoolUpdates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "eventDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "timetable",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "day", "order": "ASCENDING" },
+        { "fieldPath": "lesson", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

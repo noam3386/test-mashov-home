@@ -151,39 +151,96 @@ async function syncMashov() {
 
       log("🔑", `studentId: ${studentId}`);
 
-      // Try grades (may be denied by school), always try messages
-      const [gradesRes, msgsRes] = await Promise.allSettled([
-        axios.get(`${MASHOV_BASE}/students/${studentId}/grades`, { headers }),
-        axios.get(`${MASHOV_BASE}/messages`, { params: { folder: 1, page: 1, pageSize: 30 }, headers }),
+      // Fetch all available endpoints in parallel
+      const [behaveRes, homeworkRes, hatamotRes, timetableRes] = await Promise.allSettled([
+        axios.get(`${MASHOV_BASE}/students/${studentId}/behave`,   { headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/homework`, { headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/hatamot`,  { headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/timetable`,{ headers }),
       ]);
-      const grades = gradesRes.status === "fulfilled" ? gradesRes.value.data : [];
-      const msgs   = msgsRes.status   === "fulfilled" ? msgsRes.value.data   : [];
-      if (gradesRes.status === "rejected") log("⚠️", `ציונים לא זמינים: ${gradesRes.reason?.response?.status}`);
-      if (msgsRes.status   === "rejected") log("⚠️", `הודעות לא זמינות: ${msgsRes.reason?.response?.status}`);
+      const behave   = behaveRes.status    === "fulfilled" ? (behaveRes.value.data   ?? []) : [];
+      const homework = homeworkRes.status  === "fulfilled" ? (homeworkRes.value.data ?? []) : [];
+      const hatamot  = hatamotRes.status   === "fulfilled" ? (hatamotRes.value.data  ?? []) : [];
+      const timetable= timetableRes.status === "fulfilled" ? (timetableRes.value.data?? []) : [];
+      if (behaveRes.status    === "rejected") log("⚠️", `התנהגות לא זמינה: ${behaveRes.reason?.response?.status}`);
+      if (homeworkRes.status  === "rejected") log("⚠️", `שיעורי בית לא זמינים: ${homeworkRes.reason?.response?.status}`);
+      if (hatamotRes.status   === "rejected") log("⚠️", `ציוד לא זמין: ${hatamotRes.reason?.response?.status}`);
+      if (timetableRes.status === "rejected") log("⚠️", `מערכת שעות לא זמינה: ${timetableRes.reason?.response?.status}`);
 
       const batch = db.batch();
       let newCount = 0;
 
-      for (const g of (grades ?? [])) {
-        const docId = `grade_${student.memberId}_${g.gradingEventId}_${g.eventDate?.slice(0,10)}`;
+      // Behavior events
+      for (const b of behave) {
+        const dateKey = (b.timestamp ?? b.lessonDate ?? "").slice(0, 10);
+        const docId = `behave_${student.memberId}_${b.lessonId ?? b.groupId}_${dateKey}`;
         const ref = db.collection("schoolUpdates").doc(docId);
         if (!(await ref.get()).exists) {
-          batch.set(ref, { memberId: student.memberId, type: "grade", subject: g.subject,
-            title: g.title, body: "", grade: g.grade, maxGrade: g.maxGrade, weight: g.weight,
-            teacherName: g.teacherName, eventDate: new Date(g.eventDate),
-            fetchedAt: FieldValue.serverTimestamp(), read: false });
+          batch.set(ref, {
+            memberId: student.memberId, type: "behavior",
+            eventCode: b.eventCode ?? 0,
+            categoryName: b.categoryName ?? b.eventType ?? "",
+            justified: b.justified ?? -1,
+            groupId: b.groupId ?? null,
+            teacherName: b.reporterName ?? "",
+            eventDate: new Date(b.timestamp ?? b.lessonDate),
+            fetchedAt: FieldValue.serverTimestamp(), read: false,
+          });
           newCount++;
         }
       }
-      for (const m of (msgs ?? [])) {
-        const docId = `msg_${student.memberId}_${m.id}`;
+
+      // Homework assignments
+      for (const h of homework) {
+        const dateKey = (h.lessonDate ?? "").slice(0, 10);
+        const safeSubject = (h.subjectName ?? "").replace(/[^a-zA-Z0-9א-ת]/g, "_").slice(0, 30);
+        const docId = `hw_${student.memberId}_${safeSubject}_${dateKey}`;
         const ref = db.collection("schoolUpdates").doc(docId);
         if (!(await ref.get()).exists) {
-          batch.set(ref, { memberId: student.memberId, type: "message", subject: m.subject,
-            title: m.subject, body: m.body, teacherName: m.senderName,
-            eventDate: new Date(m.sendDate), fetchedAt: FieldValue.serverTimestamp(), read: false });
+          batch.set(ref, {
+            memberId: student.memberId, type: "homework",
+            subject: h.subjectName ?? "",
+            title: h.subjectName ?? "",
+            body: h.homework ?? "",
+            teacherName: h.teacherName ?? "",
+            eventDate: new Date(h.lessonDate ?? Date.now()),
+            fetchedAt: FieldValue.serverTimestamp(), read: false,
+          });
           newCount++;
         }
+      }
+
+      // Equipment / Hatamot (overwrite — may change daily)
+      for (const item of hatamot) {
+        const docId = `hat_${student.memberId}_${item.code ?? item.name?.slice(0,10)}`;
+        batch.set(db.collection("schoolUpdates").doc(docId), {
+          memberId: student.memberId, type: "hatamot",
+          title: item.name ?? "",
+          body: item.remark ?? "",
+          eventDate: new Date(),
+          fetchedAt: FieldValue.serverTimestamp(), read: true,
+        });
+        newCount++;
+      }
+
+      // Timetable (overwrite all — store in separate collection)
+      const ttBatch = db.batch();
+      for (const entry of timetable) {
+        const tt = entry.timeTable ?? entry;
+        const gd = entry.groupDetails ?? {};
+        const docId = `tt_${student.memberId}_d${tt.day}_l${tt.lesson}`;
+        ttBatch.set(db.collection("timetable").doc(docId), {
+          memberId: student.memberId,
+          day: tt.day, lesson: tt.lesson, roomNum: tt.roomNum ?? "",
+          subjectName: gd.subjectName ?? tt.subjectName ?? "",
+          groupName: gd.groupName ?? "",
+          teacherName: gd.groupTeachers?.[0]?.teacherName ?? "",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      if (timetable.length > 0) {
+        await ttBatch.commit();
+        log("📋", `מערכת שעות: ${timetable.length} שיעורים עודכנו`);
       }
 
       await batch.commit();

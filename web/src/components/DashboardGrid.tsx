@@ -1,8 +1,8 @@
 import { ClockTile } from "../tiles/ClockTile";
 import { CalendarTile } from "../tiles/CalendarTile";
 import { TasksTile } from "../tiles/TasksTile";
-import { GradesTile } from "../tiles/GradesTile";
-import { MessagesTile } from "../tiles/MessagesTile";
+import { BehaviorTile } from "../tiles/BehaviorTile";
+import { SchoolTomorrowTile } from "../tiles/SchoolTomorrowTile";
 import { ChuggimTile } from "../tiles/ChuggimTile";
 import { WeatherTile } from "../tiles/WeatherTile";
 
@@ -16,9 +16,9 @@ export function DashboardGrid() {
         <div className="col-span-3 row-span-2"><WeatherTile /></div>
         <div className="col-span-6 row-span-2"><CalendarTile /></div>
 
-        <div className="col-span-3 row-span-3"><MessagesTile /></div>
+        <div className="col-span-3 row-span-3"><BehaviorTile /></div>
         <div className="col-span-3 row-span-3"><TasksTile mode="today" /></div>
-        <div className="col-span-3 row-span-3"><GradesTile /></div>
+        <div className="col-span-3 row-span-3"><SchoolTomorrowTile /></div>
         <div className="col-span-3 row-span-3"><TasksTile mode="week" /></div>
 
         <div className="col-span-12 row-span-3"><ChuggimTile /></div>
@@ -32,15 +32,15 @@ export function DashboardGrid() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <TasksTile mode="today" />
-          <MessagesTile />
+          <BehaviorTile />
         </div>
         <CalendarTile />
-        <GradesTile />
+        <SchoolTomorrowTile />
         <TasksTile mode="week" />
         <ChuggimTile />
       </div>
 
-      <div className="text-center text-gray-300 text-xs mt-2">v1.3 — {new Date().toLocaleString("he-IL")}</div>
+      <div className="text-center text-gray-300 text-xs mt-2">v1.4 — {new Date().toLocaleString("he-IL")}</div>
     </div>
   );
 }

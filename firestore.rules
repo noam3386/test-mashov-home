@@ -36,6 +36,11 @@ service cloud.firestore {
       allow write: if isParent();
     }
 
+    match /timetable/{entryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // config — רק Admin SDK
     match /config/{configId} {
       allow read: if isParent();
