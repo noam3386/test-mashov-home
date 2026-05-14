@@ -9,20 +9,20 @@ export function DashboardGrid() {
   return (
     <main
       dir="rtl"
-      className="h-screen w-screen bg-slate-900 text-white font-sans grid grid-cols-12 grid-rows-8 gap-2 p-2 overflow-hidden"
+      className="h-screen w-screen bg-gray-100 font-sans grid grid-cols-12 grid-rows-8 gap-3 p-3 overflow-hidden"
     >
-      {/* Row 1-2: Clock | Calendar (top) | Tasks Today */}
-      <ClockTile />
-      <CalendarTile />
-      <TasksTile mode="today" />
+      {/* שורה 1-2: שעון | לוח (top) | משימות היום */}
+      <div className="col-span-3 row-span-2"><ClockTile /></div>
+      <div className="col-span-5 row-span-4"><CalendarTile /></div>
+      <div className="col-span-4 row-span-3"><TasksTile mode="today" /></div>
 
-      {/* Row 3-5: Messages | Calendar (bottom continued) | Grades */}
-      <MessagesTile />
-      <GradesTile />
+      {/* שורה 3-5: הודעות | לוח (bottom) | ציונים */}
+      <div className="col-span-3 row-span-3"><MessagesTile /></div>
+      <div className="col-span-4 row-span-3"><GradesTile /></div>
 
-      {/* Row 5-8: Tasks Week | Chugim */}
-      <TasksTile mode="week" />
-      <ChuggimTile />
+      {/* שורה 5-8: משימות שבוע | חוגים */}
+      <div className="col-span-4 row-span-4"><TasksTile mode="week" /></div>
+      <div className="col-span-8 row-span-4"><ChuggimTile /></div>
     </main>
   );
 }

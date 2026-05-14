@@ -1,5 +1,5 @@
 import { where, Timestamp } from "firebase/firestore";
-import { startOfWeek, endOfWeek, format } from "date-fns";
+import { startOfWeek, endOfWeek, format, isToday } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 
@@ -9,7 +9,10 @@ interface ScheduleEvent {
   startTime: Timestamp;
   endTime: Timestamp;
   category: string;
+  memberId: string[];
 }
+
+const dayColors = ["bg-red-100 text-red-700", "bg-orange-100 text-orange-700", "bg-yellow-100 text-yellow-700", "bg-green-100 text-green-700", "bg-blue-100 text-blue-700", "bg-indigo-100 text-indigo-700", "bg-purple-100 text-purple-700"];
 
 export function ChuggimTile() {
   const now = new Date();
@@ -22,31 +25,30 @@ export function ChuggimTile() {
     where("startTime", "<=", Timestamp.fromDate(weekEnd)),
   ]);
 
-  const sorted = [...events].sort(
-    (a, b) => a.startTime.toMillis() - b.startTime.toMillis()
-  );
+  const sorted = [...events].sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 
   return (
-    <div className="tile col-span-8 row-span-4 flex flex-col overflow-hidden">
-      <h2 className="tile-title">חוגים השבוע</h2>
+    <div className="tile h-full flex flex-col">
+      <div className="tile-title">🏃 חוגים השבוע</div>
       {loading ? (
         <Skeleton />
       ) : sorted.length === 0 ? (
-        <p className="text-slate-400 text-sm mt-2">אין חוגים השבוע</p>
+        <p className="text-gray-400 text-sm text-center mt-8">אין חוגים השבוע</p>
       ) : (
-        <ul className="flex-1 overflow-y-auto space-y-1 mt-2">
-          {sorted.map((ev) => (
-            <li key={ev.id} className="flex items-center gap-3 text-sm">
-              <span className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />
-              <span className="text-slate-400 w-24 flex-shrink-0">
-                {format(ev.startTime.toDate(), "EEEE HH:mm", { locale: he })}
-              </span>
-              <span className="truncate">{ev.title}</span>
-              <span className="text-slate-500 text-xs">
-                עד {format(ev.endTime.toDate(), "HH:mm")}
-              </span>
-            </li>
-          ))}
+        <ul className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 content-start">
+          {sorted.map((ev) => {
+            const day = ev.startTime.toDate().getDay();
+            const colors = dayColors[day];
+            const today = isToday(ev.startTime.toDate());
+            return (
+              <li key={ev.id} className={`rounded-xl px-3 py-2.5 ${colors} ${today ? "ring-2 ring-offset-1 ring-purple-400" : ""}`}>
+                <div className="font-semibold text-sm truncate">{ev.title}</div>
+                <div className="text-xs opacity-70 mt-0.5">
+                  {format(ev.startTime.toDate(), "EEEE", { locale: he })} · {format(ev.startTime.toDate(), "HH:mm")}–{format(ev.endTime.toDate(), "HH:mm")}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -55,9 +57,9 @@ export function ChuggimTile() {
 
 function Skeleton() {
   return (
-    <div className="space-y-2 mt-2">
+    <div className="grid grid-cols-2 gap-2">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="h-5 bg-slate-700 rounded animate-pulse" />
+        <div key={i} className="skeleton h-16 w-full" />
       ))}
     </div>
   );

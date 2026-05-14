@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   collection,
   onSnapshot,
@@ -24,7 +24,13 @@ export function useRealtimeCollection<T = DocumentData>(
     error: null,
   });
 
+  // Serialize constraints so the effect only re-runs when the query actually changes
+  const key = constraints.map((c) => JSON.stringify(c)).join("|");
+  const keyRef = useRef(key);
+  keyRef.current = key;
+
   useEffect(() => {
+    setState((s) => ({ ...s, loading: true }));
     const q = query(collection(db, path), ...constraints);
     const unsub = onSnapshot(
       q,
@@ -36,11 +42,13 @@ export function useRealtimeCollection<T = DocumentData>(
         });
       },
       (err) => {
+        console.error(`Firestore error on ${path}:`, err.message);
         setState((s) => ({ ...s, loading: false, error: err.message }));
       }
     );
     return unsub;
-  }, [path]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, key]);
 
   return state;
 }

@@ -15,10 +15,10 @@ export function ClockTile() {
   const timeStr = format(now, "HH:mm:ss");
 
   return (
-    <div className="tile col-span-3 row-span-2 flex flex-col items-center justify-center">
-      <div className="text-5xl font-bold tabular-nums">{timeStr}</div>
-      <div className="text-xl mt-2 text-slate-300">{dayName}</div>
-      <div className="text-sm text-slate-400 mt-1">{dateStr}</div>
+    <div className="tile h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 border-0">
+      <div className="text-5xl font-bold tabular-nums text-white tracking-tight">{timeStr}</div>
+      <div className="text-lg mt-2 text-blue-100 font-medium">{dayName}</div>
+      <div className="text-sm text-blue-200 mt-1">{dateStr}</div>
     </div>
   );
 }

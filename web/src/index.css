@@ -2,11 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-900;
+  }
+}
+
 @layer components {
   .tile {
-    @apply bg-slate-800 rounded-xl p-3 overflow-hidden;
+    @apply bg-white rounded-2xl p-4 shadow-sm border border-gray-200 overflow-hidden;
   }
   .tile-title {
-    @apply text-slate-300 text-sm font-medium uppercase tracking-wide flex items-center;
+    @apply text-gray-500 text-xs font-semibold uppercase tracking-widest flex items-center gap-2 mb-3;
+  }
+  .skeleton {
+    @apply bg-gray-100 rounded-lg animate-pulse;
   }
 }

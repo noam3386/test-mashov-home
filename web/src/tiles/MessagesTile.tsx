@@ -1,12 +1,9 @@
 import { where, orderBy, Timestamp, doc, updateDoc } from "firebase/firestore";
-import { format } from "date-fns";
-import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 import { db } from "../firebase";
 
 interface SchoolUpdate {
   id: string;
-  type: string;
   title: string;
   body: string;
   teacherName: string;
@@ -25,29 +22,32 @@ export function MessagesTile() {
   }
 
   return (
-    <div className="tile col-span-3 row-span-3 flex flex-col overflow-hidden">
-      <h2 className="tile-title">
-        הודעות
+    <div className="tile h-full flex flex-col">
+      <div className="tile-title">
+        ✉️ הודעות
         {messages.length > 0 && (
-          <span className="mr-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+          <span className="mr-1 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold">
             {messages.length}
           </span>
         )}
-      </h2>
+      </div>
       {loading ? (
         <Skeleton />
       ) : messages.length === 0 ? (
-        <p className="text-slate-400 text-sm mt-2">אין הודעות חדשות</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-300">
+          <span className="text-4xl mb-2">📭</span>
+          <p className="text-sm">אין הודעות חדשות</p>
+        </div>
       ) : (
-        <ul className="flex-1 overflow-y-auto space-y-2 mt-2">
+        <ul className="flex-1 overflow-y-auto space-y-2">
           {messages.map((m) => (
             <li
               key={m.id}
-              className="text-sm bg-slate-700 rounded p-2 cursor-pointer hover:bg-slate-600"
               onClick={() => markRead(m.id)}
+              className="bg-blue-50 rounded-xl px-3 py-2.5 cursor-pointer hover:bg-blue-100 transition-colors border border-blue-100"
             >
-              <div className="font-medium truncate">{m.title}</div>
-              <div className="text-slate-400 text-xs">{m.teacherName}</div>
+              <div className="text-sm font-semibold text-blue-900 truncate">{m.title}</div>
+              <div className="text-xs text-blue-500 mt-0.5">{m.teacherName}</div>
             </li>
           ))}
         </ul>
@@ -58,9 +58,9 @@ export function MessagesTile() {
 
 function Skeleton() {
   return (
-    <div className="space-y-2 mt-2">
+    <div className="space-y-2">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="h-12 bg-slate-700 rounded animate-pulse" />
+        <div key={i} className="skeleton h-14 w-full" />
       ))}
     </div>
   );

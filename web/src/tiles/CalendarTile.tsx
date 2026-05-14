@@ -1,5 +1,5 @@
 import { where, Timestamp } from "firebase/firestore";
-import { startOfWeek, endOfWeek, format } from "date-fns";
+import { startOfWeek, endOfWeek, format, isToday } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 
@@ -13,11 +13,11 @@ interface ScheduleEvent {
   allDay: boolean;
 }
 
-const categoryColors: Record<string, string> = {
-  chug: "bg-purple-500",
-  school: "bg-blue-500",
-  family: "bg-green-500",
-  appointment: "bg-yellow-500",
+const categoryStyle: Record<string, { bg: string; text: string; dot: string }> = {
+  chug:        { bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-400" },
+  school:      { bg: "bg-blue-50",   text: "text-blue-700",   dot: "bg-blue-400"   },
+  family:      { bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-400"  },
+  appointment: { bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-400"  },
 };
 
 export function CalendarTile() {
@@ -35,23 +35,27 @@ export function CalendarTile() {
   );
 
   return (
-    <div className="tile col-span-5 row-span-4 flex flex-col overflow-hidden">
-      <h2 className="tile-title">לוח שבועי</h2>
+    <div className="tile h-full flex flex-col">
+      <div className="tile-title">📅 לוח שבועי</div>
       {loading ? (
         <Skeleton />
       ) : sorted.length === 0 ? (
-        <p className="text-slate-400 text-sm mt-2">אין אירועים השבוע</p>
+        <p className="text-gray-400 text-sm text-center mt-8">אין אירועים השבוע</p>
       ) : (
-        <ul className="flex-1 overflow-y-auto space-y-1 mt-2">
-          {sorted.map((ev) => (
-            <li key={ev.id} className="flex items-center gap-2 text-sm">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${categoryColors[ev.category] ?? "bg-slate-500"}`} />
-              <span className="text-slate-400 w-16 flex-shrink-0">
-                {ev.allDay ? "כל היום" : format(ev.startTime.toDate(), "HH:mm")}
-              </span>
-              <span className="truncate">{ev.title}</span>
-            </li>
-          ))}
+        <ul className="flex-1 overflow-y-auto space-y-1.5">
+          {sorted.map((ev) => {
+            const style = categoryStyle[ev.category] ?? categoryStyle.family;
+            const todayEvent = isToday(ev.startTime.toDate());
+            return (
+              <li key={ev.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${style.bg} ${todayEvent ? "ring-2 ring-blue-300" : ""}`}>
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`} />
+                <span className={`text-xs font-medium w-14 flex-shrink-0 ${style.text}`}>
+                  {ev.allDay ? "כל היום" : format(ev.startTime.toDate(), "HH:mm")}
+                </span>
+                <span className={`text-sm truncate font-medium ${style.text}`}>{ev.title}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -60,9 +64,9 @@ export function CalendarTile() {
 
 function Skeleton() {
   return (
-    <div className="space-y-2 mt-2">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="h-5 bg-slate-700 rounded animate-pulse" />
+    <div className="space-y-2">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="skeleton h-9 w-full" />
       ))}
     </div>
   );
