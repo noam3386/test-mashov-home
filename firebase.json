@@ -11,6 +11,7 @@
     }
   ],
   "hosting": {
+    "site": "family-organizer-9b56c",
     "public": "web/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
