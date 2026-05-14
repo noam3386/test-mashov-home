@@ -1,4 +1,4 @@
-import { where, orderBy, Timestamp } from "firebase/firestore";
+import { where, Timestamp } from "firebase/firestore";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
@@ -37,26 +37,28 @@ export function SchoolTomorrowTile() {
   const tomorrow = getTomorrow();
   const tomorrowDayNum = tomorrowDay();
 
-  const { data: timetableAll, loading: ttLoading } = useRealtimeCollection<TimetableEntry>(
+  const { data: timetableRaw, loading: ttLoading } = useRealtimeCollection<TimetableEntry>(
     "timetable",
-    [where("day", "==", tomorrowDayNum), orderBy("lesson", "asc")]
+    [where("day", "==", tomorrowDayNum)]
   );
+  const timetableAll = [...timetableRaw].sort((a, b) => a.lesson - b.lesson);
 
-  const sevenDaysAgo = startOfDay(addDays(new Date(), -7));
+  const sevenDaysAgo  = startOfDay(addDays(new Date(), -7));
   const sevenDaysAhead = startOfDay(addDays(new Date(), 7));
 
   const { data: schoolUpdates, loading: suLoading } = useRealtimeCollection<SchoolUpdate>(
     "schoolUpdates",
-    [
-      where("type", "in", ["homework", "hatamot"]),
-      where("eventDate", ">=", Timestamp.fromDate(sevenDaysAgo)),
-      orderBy("eventDate", "asc"),
-    ]
+    [where("type", "in", ["homework", "hatamot"])]
   );
 
-  const homework = schoolUpdates.filter(
-    (u) => u.type === "homework" && isBefore(u.eventDate.toDate(), sevenDaysAhead)
-  );
+  const homework = [...schoolUpdates]
+    .filter(
+      (u) =>
+        u.type === "homework" &&
+        !isBefore(u.eventDate.toDate(), sevenDaysAgo) &&
+        isBefore(u.eventDate.toDate(), sevenDaysAhead)
+    )
+    .sort((a, b) => a.eventDate.toMillis() - b.eventDate.toMillis());
   const hatamot = schoolUpdates.filter((u) => u.type === "hatamot");
 
   const loading = ttLoading || suLoading;

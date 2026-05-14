@@ -1,4 +1,4 @@
-import { where, orderBy, limit, Timestamp } from "firebase/firestore";
+import { where, Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
@@ -25,10 +25,13 @@ const EVENT_LABELS: Record<number, { label: string; bg: string; text: string }> 
 const DEFAULT_EVENT = { label: "אחר", bg: "bg-gray-100", text: "text-gray-600" };
 
 export function BehaviorTile() {
-  const { data: events, loading } = useRealtimeCollection<BehaviorEvent>(
+  const { data: rawEvents, loading } = useRealtimeCollection<BehaviorEvent>(
     "schoolUpdates",
-    [where("type", "==", "behavior"), orderBy("eventDate", "desc"), limit(12)]
+    [where("type", "==", "behavior")]
   );
+  const events = [...rawEvents]
+    .sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis())
+    .slice(0, 12);
 
   return (
     <div className="tile flex flex-col min-h-48">
