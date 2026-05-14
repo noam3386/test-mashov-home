@@ -1,0 +1,28 @@
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+.firebaserc.local
+
+# Secrets — NEVER commit these
+scripts/serviceAccount.json
+web/.env.local
+functions/.env.local
+**/*.local.json
+
+# Node
+node_modules/
+functions/lib/
+functions/node_modules/
+web/node_modules/
+scripts/node_modules/
+
+# Build
+web/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDX
+.idx/
