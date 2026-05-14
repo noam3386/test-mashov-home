@@ -16,6 +16,14 @@ interface ScheduleEvent {
   allDay: boolean;
 }
 
+interface TimetableEntry {
+  id: string;
+  day: number;
+  lesson: number;
+  subjectName: string;
+  teacherName: string;
+}
+
 const CAT_COLOR: Record<string, string> = {
   chug:        "bg-purple-400",
   school:      "bg-blue-400",
@@ -38,8 +46,9 @@ const DAY_NAMES = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 
 export function CalendarTile() {
   const [viewMonth, setViewMonth] = useState(new Date());
-  const [selected, setSelected] = useState<ScheduleEvent[] | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedEvs, setSelectedEvs] = useState<ScheduleEvent[]>([]);
+  const [selectedTT, setSelectedTT] = useState<TimetableEntry[]>([]);
 
   const monthStart = startOfMonth(viewMonth);
   const monthEnd   = endOfMonth(viewMonth);
@@ -52,6 +61,9 @@ export function CalendarTile() {
     where("startTime", "<=", Timestamp.fromDate(calEnd)),
   ]);
 
+  const { data: timetableAll } = useRealtimeCollection<TimetableEntry>("timetable", []);
+
+  // Group calendar events by date
   const byDay = new Map<string, ScheduleEvent[]>();
   events.forEach((ev) => {
     const key = format(ev.startTime.toDate(), "yyyy-MM-dd");
@@ -59,30 +71,36 @@ export function CalendarTile() {
     byDay.get(key)!.push(ev);
   });
 
+  // Group timetable by JS day-of-week (0=Sun)
+  const ttByDow = new Map<number, TimetableEntry[]>();
+  timetableAll.forEach((entry) => {
+    if (!ttByDow.has(entry.day)) ttByDow.set(entry.day, []);
+    ttByDow.get(entry.day)!.push(entry);
+  });
+
   const weeks: Date[][] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
-  function openDay(day: Date, dayEvs: ScheduleEvent[]) {
-    if (dayEvs.length === 0) return;
+  function openDay(day: Date, dayEvs: ScheduleEvent[], tt: TimetableEntry[]) {
+    if (dayEvs.length === 0 && tt.length === 0) return;
     setSelectedDate(day);
-    setSelected(dayEvs);
+    setSelectedEvs(dayEvs);
+    setSelectedTT([...tt].sort((a, b) => a.lesson - b.lesson));
   }
+
+  const isOpen = selectedDate !== null;
 
   return (
     <div className="tile h-full flex flex-col relative">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <button
-          onClick={() => setViewMonth(m => addMonths(m, 1))}
-          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none"
-        >‹</button>
+        <button onClick={() => setViewMonth(m => addMonths(m, 1))}
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">‹</button>
         <span className="font-bold text-gray-700 text-sm">
           {format(viewMonth, "MMMM yyyy", { locale: he })}
         </span>
-        <button
-          onClick={() => setViewMonth(m => addMonths(m, -1))}
-          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none"
-        >›</button>
+        <button onClick={() => setViewMonth(m => addMonths(m, -1))}
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">›</button>
       </div>
 
       {/* Day name row */}
@@ -99,29 +117,40 @@ export function CalendarTile() {
             {week.map((day) => {
               const key    = format(day, "yyyy-MM-dd");
               const dayEvs = byDay.get(key) ?? [];
+              const tt     = ttByDow.get(day.getDay()) ?? [];
               const today  = isToday(day);
               const inMonth= isSameMonth(day, viewMonth);
-              const hasEvs = dayEvs.length > 0;
+              const clickable = dayEvs.length > 0 || tt.length > 0;
+
               return (
                 <div
                   key={key}
-                  onClick={() => openDay(day, dayEvs)}
-                  className={`rounded-lg p-1 flex flex-col min-h-0 transition-colors ${
-                    hasEvs ? "cursor-pointer" : ""
-                  } ${
+                  onClick={() => openDay(day, dayEvs, tt)}
+                  className={`rounded-lg p-1 flex flex-col min-h-0 transition-colors ${clickable ? "cursor-pointer" : ""} ${
                     today   ? "bg-blue-50 ring-1 ring-blue-300" :
-                    inMonth ? "bg-white hover:bg-gray-50" : "bg-gray-50"
+                    inMonth ? "bg-white hover:bg-gray-50"        : "bg-gray-50"
                   }`}
                 >
+                  {/* Day number */}
                   <div className={`text-xs font-semibold mb-0.5 text-center leading-none ${
-                    today   ? "text-blue-600" :
-                    inMonth ? "text-gray-700" : "text-gray-300"
+                    today ? "text-blue-600" : inMonth ? "text-gray-700" : "text-gray-300"
                   }`}>
                     {format(day, "d")}
                   </div>
 
                   <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-hidden">
-                    {dayEvs.slice(0, 3).map((ev) => (
+                    {/* Timetable row — one compact blue bar */}
+                    {tt.length > 0 && inMonth && (
+                      <div
+                        className="bg-blue-400 rounded text-white text-center leading-none px-0.5 py-0.5 truncate"
+                        style={{ fontSize: "0.55rem" }}
+                      >
+                        📚 {tt.length} שיעורים
+                      </div>
+                    )}
+
+                    {/* Calendar events */}
+                    {dayEvs.slice(0, tt.length > 0 ? 2 : 3).map((ev) => (
                       <div
                         key={ev.id}
                         className={`rounded text-white text-center leading-none px-0.5 py-0.5 truncate ${CAT_COLOR[ev.category] ?? "bg-gray-400"}`}
@@ -130,9 +159,9 @@ export function CalendarTile() {
                         {ev.title}
                       </div>
                     ))}
-                    {dayEvs.length > 3 && (
+                    {dayEvs.length > (tt.length > 0 ? 2 : 3) && (
                       <div className="text-gray-400 text-center leading-none" style={{ fontSize: "0.55rem" }}>
-                        +{dayEvs.length - 3}
+                        +{dayEvs.length - (tt.length > 0 ? 2 : 3)}
                       </div>
                     )}
                   </div>
@@ -145,7 +174,11 @@ export function CalendarTile() {
 
       {/* Legend */}
       <div className="flex gap-3 justify-center mt-1.5 flex-wrap">
-        {(["chug","school","family","appointment"] as const).map((cat) => (
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-blue-400" />
+          <span className="text-xs text-gray-400">מערכת שעות</span>
+        </div>
+        {(["chug","family","appointment"] as const).map((cat) => (
           <div key={cat} className="flex items-center gap-1">
             <div className={`w-2 h-2 rounded-full ${CAT_COLOR[cat]}`} />
             <span className="text-xs text-gray-400">{CAT_LABEL[cat]}</span>
@@ -154,10 +187,10 @@ export function CalendarTile() {
       </div>
 
       {/* Day detail modal */}
-      {selected && selectedDate && (
+      {isOpen && (
         <div
           className="absolute inset-0 bg-black/30 rounded-2xl flex items-center justify-center z-10 p-3"
-          onClick={() => setSelected(null)}
+          onClick={() => setSelectedDate(null)}
         >
           <div
             className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-4"
@@ -165,32 +198,57 @@ export function CalendarTile() {
           >
             <div className="flex items-center justify-between mb-3">
               <span className="font-bold text-gray-800 text-sm">
-                {format(selectedDate, "EEEE, d MMMM", { locale: he })}
+                {format(selectedDate!, "EEEE, d MMMM", { locale: he })}
               </span>
-              <button
-                onClick={() => setSelected(null)}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-              >×</button>
+              <button onClick={() => setSelectedDate(null)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
 
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {selected.map((ev) => {
-                const start = ev.startTime.toDate();
-                const end   = ev.endTime?.toDate?.();
-                return (
-                  <div key={ev.id} className={`rounded-xl px-3 py-2.5 ${CAT_BADGE[ev.category] ?? "bg-gray-100 text-gray-700"}`}>
-                    <div className="font-semibold text-sm leading-snug">{ev.title}</div>
-                    <div className="text-xs opacity-70 mt-0.5">
-                      {ev.allDay
-                        ? "כל היום"
-                        : end
-                        ? `${format(start, "HH:mm")} – ${format(end, "HH:mm")}`
-                        : format(start, "HH:mm")}
-                    </div>
-                    <div className="text-xs opacity-60 mt-0.5">{CAT_LABEL[ev.category] ?? ev.category}</div>
+            <div className="space-y-3 max-h-72 overflow-y-auto">
+              {/* Timetable section */}
+              {selectedTT.length > 0 && (
+                <div>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">מערכת שעות</div>
+                  <div className="space-y-1">
+                    {selectedTT.map((entry) => (
+                      <div key={entry.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-2.5 py-1.5">
+                        <span className="w-5 h-5 flex-shrink-0 rounded-full bg-blue-200 text-blue-800 font-bold flex items-center justify-center text-xs">
+                          {entry.lesson}
+                        </span>
+                        <span className="text-sm font-medium text-blue-900 truncate">{entry.subjectName}</span>
+                        {entry.teacherName && (
+                          <span className="mr-auto text-xs text-blue-400 flex-shrink-0">{entry.teacherName}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Calendar events section */}
+              {selectedEvs.length > 0 && (
+                <div>
+                  {selectedTT.length > 0 && (
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">אירועים</div>
+                  )}
+                  <div className="space-y-1.5">
+                    {selectedEvs.map((ev) => {
+                      const start = ev.startTime.toDate();
+                      const end   = ev.endTime?.toDate?.();
+                      return (
+                        <div key={ev.id} className={`rounded-xl px-3 py-2.5 ${CAT_BADGE[ev.category] ?? "bg-gray-100 text-gray-700"}`}>
+                          <div className="font-semibold text-sm leading-snug">{ev.title}</div>
+                          <div className="text-xs opacity-70 mt-0.5">
+                            {ev.allDay ? "כל היום"
+                              : end ? `${format(start, "HH:mm")} – ${format(end, "HH:mm")}`
+                              : format(start, "HH:mm")}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
