@@ -26,7 +26,8 @@ for (const year of YEARS) {
     const csrf     = res.headers["x-csrf-token"];
     const cookies  = (await jar.getCookies(BASE)).map(c => `${c.key}=${c.value}`).join("; ");
     const students = res.data?.students;
-    console.log(`✅ התחברות הצליחה! students:`, JSON.stringify(students));
+    console.log(`✅ התחברות הצליחה!`);
+    console.log(`   תגובה מלאה:`, JSON.stringify(res.data));
     console.log(`   csrf: ${csrf ? "קיים" : "חסר"}`);
 
     const studentId = students?.[0]?.pupilId ?? USERNAME;
