@@ -1,7 +1,8 @@
-import { where, Timestamp } from "firebase/firestore";
+import { where, Timestamp, doc, updateDoc } from "firebase/firestore";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { db } from "../firebase";
 
 interface TimetableEntry {
   id: string;
@@ -59,7 +60,13 @@ export function SchoolTomorrowTile() {
         isBefore(u.eventDate.toDate(), sevenDaysAhead)
     )
     .sort((a, b) => a.eventDate.toMillis() - b.eventDate.toMillis());
-  const hatamot = schoolUpdates.filter((u) => u.type === "hatamot");
+  const hatamot  = schoolUpdates.filter((u) => u.type === "hatamot");
+  const doneHw   = homework.filter((u) => u.read);
+  const pendingHw= homework.filter((u) => !u.read);
+
+  async function toggleDone(id: string, current: boolean) {
+    await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
+  }
 
   const loading = ttLoading || suLoading;
 
@@ -101,34 +108,15 @@ export function SchoolTomorrowTile() {
           {/* Homework */}
           {homework.length > 0 && (
             <section>
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">שיעורי בית</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
+                שיעורי בית
+                {doneHw.length > 0 && (
+                  <span className="mr-1 text-gray-300 font-normal">({doneHw.length} הושלמו)</span>
+                )}
+              </div>
               <div className="space-y-1.5">
-                {homework.map((hw) => {
-                  const dueDate = hw.eventDate.toDate();
-                  const isOverdue = isBefore(dueDate, startOfDay(new Date()));
-                  const isDueToday = !isOverdue && isBefore(dueDate, startOfDay(addDays(new Date(), 1)));
-                  const badgeCls = isOverdue
-                    ? "bg-red-100 text-red-700"
-                    : isDueToday
-                    ? "bg-orange-100 text-orange-700"
-                    : "bg-gray-100 text-gray-600";
-                  return (
-                    <div key={hw.id} className="rounded-lg border border-gray-100 px-2.5 py-2 bg-white">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-semibold text-gray-800 truncate">{hw.subject}</span>
-                        <span className={`mr-auto flex-shrink-0 text-xs rounded px-1.5 py-0.5 font-medium ${badgeCls}`}>
-                          {format(dueDate, "d/M", { locale: he })}
-                        </span>
-                      </div>
-                      {hw.body && (
-                        <p className="text-xs text-gray-700 leading-snug line-clamp-3">{hw.body}</p>
-                      )}
-                      {hw.remark && (
-                        <p className="text-xs text-gray-400 leading-snug mt-0.5">{hw.remark}</p>
-                      )}
-                    </div>
-                  );
-                })}
+                {pendingHw.map((hw) => <HomeworkCard key={hw.id} hw={hw} onToggle={toggleDone} />)}
+                {doneHw.map((hw) => <HomeworkCard key={hw.id} hw={hw} onToggle={toggleDone} done />)}
               </div>
             </section>
           )}
@@ -153,6 +141,65 @@ export function SchoolTomorrowTile() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface HomeworkCardProps {
+  hw: SchoolUpdate;
+  done?: boolean;
+  onToggle: (id: string, current: boolean) => void;
+}
+
+function HomeworkCard({ hw, done = false, onToggle }: HomeworkCardProps) {
+  const dueDate = hw.eventDate.toDate();
+  const isOverdue = !done && isBefore(dueDate, startOfDay(new Date()));
+  const isDueToday = !done && !isOverdue && isBefore(dueDate, startOfDay(addDays(new Date(), 1)));
+  const badgeCls = done
+    ? "bg-gray-100 text-gray-400"
+    : isOverdue
+    ? "bg-red-100 text-red-700"
+    : isDueToday
+    ? "bg-orange-100 text-orange-700"
+    : "bg-gray-100 text-gray-600";
+
+  return (
+    <div
+      className={`rounded-lg border px-2.5 py-2 transition-colors ${done ? "bg-gray-50 border-gray-100 opacity-60" : "bg-white border-gray-100"}`}
+    >
+      <div className="flex items-start gap-2">
+        {/* Checkbox */}
+        <button
+          onClick={() => onToggle(hw.id, hw.read)}
+          className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+            done
+              ? "bg-green-400 border-green-400 text-white"
+              : "border-gray-300 hover:border-green-400"
+          }`}
+          title={done ? "סמן כלא הושלם" : "סמן כהושלם"}
+        >
+          {done && <span className="text-white text-xs leading-none">✓</span>}
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={`text-xs font-semibold truncate ${done ? "line-through text-gray-400" : "text-gray-800"}`}>
+              {hw.subject}
+            </span>
+            <span className={`mr-auto flex-shrink-0 text-xs rounded px-1.5 py-0.5 font-medium ${badgeCls}`}>
+              {format(dueDate, "d/M", { locale: he })}
+            </span>
+          </div>
+          {hw.body && (
+            <p className={`text-xs leading-snug line-clamp-3 ${done ? "text-gray-400 line-through" : "text-gray-700"}`}>
+              {hw.body}
+            </p>
+          )}
+          {hw.remark && !done && (
+            <p className="text-xs text-gray-400 leading-snug mt-0.5">{hw.remark}</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
