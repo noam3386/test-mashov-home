@@ -190,11 +190,9 @@ async function syncMashov() {
         }
       }
 
-      // Homework assignments
+      // Homework assignments (use lessonId as unique key)
       for (const h of homework) {
-        const dateKey = (h.lessonDate ?? "").slice(0, 10);
-        const safeSubject = (h.subjectName ?? "").replace(/[^a-zA-Z0-9א-ת]/g, "_").slice(0, 30);
-        const docId = `hw_${student.memberId}_${safeSubject}_${dateKey}`;
+        const docId = `hw_${student.memberId}_${h.lessonId}`;
         const ref = db.collection("schoolUpdates").doc(docId);
         if (!(await ref.get()).exists) {
           batch.set(ref, {
@@ -202,6 +200,7 @@ async function syncMashov() {
             subject: h.subjectName ?? "",
             title: h.subjectName ?? "",
             body: h.homework ?? "",
+            remark: h.remark ?? "",
             teacherName: h.teacherName ?? "",
             eventDate: new Date(h.lessonDate ?? Date.now()),
             fetchedAt: FieldValue.serverTimestamp(), read: false,

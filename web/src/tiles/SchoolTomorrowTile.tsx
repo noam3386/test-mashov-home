@@ -18,6 +18,7 @@ interface SchoolUpdate {
   subject: string;
   title: string;
   body: string;
+  remark?: string;
   eventDate: Timestamp;
   read: boolean;
 }
@@ -118,7 +119,10 @@ export function SchoolTomorrowTile() {
                         </span>
                       </div>
                       {hw.body && (
-                        <p className="text-xs text-gray-500 leading-snug line-clamp-2">{hw.body}</p>
+                        <p className="text-xs text-gray-700 leading-snug line-clamp-3">{hw.body}</p>
+                      )}
+                      {hw.remark && (
+                        <p className="text-xs text-gray-400 leading-snug mt-0.5">{hw.remark}</p>
                       )}
                     </div>
                   );
