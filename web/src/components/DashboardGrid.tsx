@@ -7,22 +7,31 @@ import { ChuggimTile } from "../tiles/ChuggimTile";
 
 export function DashboardGrid() {
   return (
-    <main
-      dir="rtl"
-      className="h-screen w-screen bg-gray-100 font-sans grid grid-cols-12 grid-rows-8 gap-3 p-3 overflow-hidden"
-    >
-      {/* שורה 1-2: שעון | לוח (top) | משימות היום */}
-      <div className="col-span-3 row-span-2"><ClockTile /></div>
-      <div className="col-span-5 row-span-4"><CalendarTile /></div>
-      <div className="col-span-4 row-span-3"><TasksTile mode="today" /></div>
+    <div dir="rtl" className="min-h-screen bg-gray-100 font-sans p-3">
 
-      {/* שורה 3-5: הודעות | לוח (bottom) | ציונים */}
-      <div className="col-span-3 row-span-3"><MessagesTile /></div>
-      <div className="col-span-4 row-span-3"><GradesTile /></div>
+      {/* Tablet landscape: 12-col fixed grid */}
+      <div className="hidden lg:grid lg:grid-cols-12 lg:grid-rows-8 lg:gap-3 lg:h-[calc(100vh-24px)]">
+        <div className="col-span-3 row-span-2"><ClockTile /></div>
+        <div className="col-span-5 row-span-4"><CalendarTile /></div>
+        <div className="col-span-4 row-span-3"><TasksTile mode="today" /></div>
+        <div className="col-span-3 row-span-3"><MessagesTile /></div>
+        <div className="col-span-4 row-span-3"><GradesTile /></div>
+        <div className="col-span-4 row-span-4"><TasksTile mode="week" /></div>
+        <div className="col-span-8 row-span-4"><ChuggimTile /></div>
+      </div>
 
-      {/* שורה 5-8: משימות שבוע | חוגים */}
-      <div className="col-span-4 row-span-4"><TasksTile mode="week" /></div>
-      <div className="col-span-8 row-span-4"><ChuggimTile /></div>
-    </main>
+      {/* Mobile: single column, scrollable */}
+      <div className="lg:hidden flex flex-col gap-3">
+        <ClockTile />
+        <div className="grid grid-cols-2 gap-3">
+          <TasksTile mode="today" />
+          <MessagesTile />
+        </div>
+        <CalendarTile />
+        <GradesTile />
+        <TasksTile mode="week" />
+        <ChuggimTile />
+      </div>
+    </div>
   );
 }

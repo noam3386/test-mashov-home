@@ -53,7 +53,7 @@ export function TasksTile({ mode }: Props) {
   const empty  = mode === "today" ? "אין משימות להיום" : "אין משימות פתוחות";
 
   return (
-    <div className="tile h-full flex flex-col">
+    <div className="tile flex flex-col min-h-40">
       <div className="tile-title">{label}</div>
       {loading ? (
         <Skeleton />

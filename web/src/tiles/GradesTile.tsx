@@ -24,7 +24,7 @@ export function GradesTile() {
   }
 
   return (
-    <div className="tile h-full flex flex-col">
+    <div className="tile flex flex-col min-h-48">
       <div className="tile-title">🎓 ציונים אחרונים</div>
       {loading ? (
         <Skeleton />

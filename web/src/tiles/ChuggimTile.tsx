@@ -28,7 +28,7 @@ export function ChuggimTile() {
   const sorted = [...events].sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
 
   return (
-    <div className="tile h-full flex flex-col">
+    <div className="tile flex flex-col min-h-40">
       <div className="tile-title">🏃 חוגים השבוע</div>
       {loading ? (
         <Skeleton />
