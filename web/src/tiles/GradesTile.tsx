@@ -1,6 +1,4 @@
 import { where, orderBy, limit, Timestamp, doc, updateDoc } from "firebase/firestore";
-import { format } from "date-fns";
-import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 import { db } from "../firebase";
 

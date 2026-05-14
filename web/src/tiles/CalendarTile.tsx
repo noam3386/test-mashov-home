@@ -1,6 +1,5 @@
 import { where, Timestamp } from "firebase/firestore";
 import { startOfWeek, endOfWeek, format, isToday } from "date-fns";
-import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 
 interface ScheduleEvent {
