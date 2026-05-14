@@ -50,6 +50,8 @@ await tryEndpoint("הודעות נכנסות",   `${BASE}/messages`, { folder: 1
 await tryEndpoint("הודעות יוצאות",   `${BASE}/messages`, { folder: 2, page: 1, pageSize: 10 });
 await tryEndpoint("חיסורים",          `${BASE}/students/${studentId}/attendance`);
 await tryEndpoint("קבוצות",           `${BASE}/students/${studentId}/groups`);
+await tryEndpoint("שיעורי בית",       `${BASE}/students/${studentId}/homework`);
+await tryEndpoint("ציוד (hatamot)",   `${BASE}/students/${studentId}/hatamot`);
 
 await axios.post(`${BASE}/logout`, {}, { headers: h }).catch(() => {});
 console.log("\nסיום");
