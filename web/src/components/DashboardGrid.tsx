@@ -75,7 +75,7 @@ export function DashboardGrid() {
       </div>
 
       {/* ── Mobile layout ── */}
-      <div className="lg:hidden" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--fd-bg)' }}>
+      <div className="lg:hidden flex flex-col" style={{ padding: 16, gap: 14, background: 'var(--fd-bg)' }}>
         <HeaderStrip />
         <CalendarTile />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

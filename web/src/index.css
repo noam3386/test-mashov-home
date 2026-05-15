@@ -60,7 +60,7 @@
     font-family: var(--fd-font-sans);
   }
   .skeleton {
-    background: var(--fd-card-border);
+    background: rgba(60, 40, 25, 0.08);
     @apply rounded-lg animate-pulse;
   }
 }
