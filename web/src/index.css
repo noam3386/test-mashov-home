@@ -2,24 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --fd-bg:           #f4ebde;
+  --fd-card:         #fffaf2;
+  --fd-card-border:  rgba(60, 40, 25, 0.06);
+  --fd-divider:      rgba(60, 40, 25, 0.08);
+  --fd-task-warm:    #fdf5e8;
+  --fd-ink:          #2a1f17;
+  --fd-muted:        rgba(60, 40, 25, 0.55);
+  --fd-faint:        rgba(60, 40, 25, 0.35);
+  --fd-terra:        #c25a3d;  --fd-terra-soft:  #f4d4c5;
+  --fd-sage:         #6f8a5b;  --fd-sage-soft:   #dde6cf;
+  --fd-honey:        #b88a4a;  --fd-honey-soft:  #f0e1c4;
+  --fd-forest:       #3d6e57;  --fd-forest-soft: #cfe1d6;
+  --fd-school-bg:    #e3ecf6;  --fd-school-fg:   #345b86;
+  --fd-shadow-card:  0 1px 0 rgba(60,40,25,0.04), 0 8px 24px -16px rgba(60,40,25,0.20);
+  --fd-radius-card:  24px;
+  --fd-radius-lg:    16px;
+  --fd-radius-md:    12px;
+  --fd-radius-sm:    8px;
+  --fd-pad-card:     22px;
+  --fd-font-sans:    'Rubik', 'Heebo', system-ui, -apple-system, sans-serif;
+  --fd-font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+}
+
 @layer base {
   body {
-    @apply bg-slate-100 text-gray-900;
-    font-family: 'Heebo', sans-serif;
+    background: var(--fd-bg);
+    color: var(--fd-ink);
+    font-family: var(--fd-font-sans);
   }
 }
 
 @layer components {
   .tile {
-    @apply bg-white rounded-2xl p-4 shadow-sm border border-gray-100 overflow-hidden;
+    background: var(--fd-card);
+    border: 1px solid var(--fd-card-border);
+    border-radius: var(--fd-radius-card);
+    box-shadow: var(--fd-shadow-card);
+    padding: var(--fd-pad-card);
+    overflow: hidden;
   }
-  .tile-title {
-    @apply text-gray-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-3;
+  .card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--fd-ink);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .card-subtitle {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--fd-faint);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    font-family: var(--fd-font-sans);
   }
   .skeleton {
-    @apply bg-gray-100 rounded-lg animate-pulse;
-  }
-  .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+    background: var(--fd-card-border);
+    @apply rounded-lg animate-pulse;
   }
 }

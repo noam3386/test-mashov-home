@@ -1,108 +1,106 @@
 import { useEffect, useState } from "react";
+import { CardHead } from "../components/CardHead";
+import { WeatherGlyph, weatherKind, weatherLabel } from "../components/WeatherGlyph";
 
 interface WeatherData {
   temp: number;
   feelsLike: number;
-  humidity: number;
-  windSpeed: number;
   code: number;
+  forecast: { day: string; hi: number; lo: number; code: number }[];
 }
 
-const HOD_HASHARON_LAT = 32.1533;
-const HOD_HASHARON_LON = 34.8878;
-const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
-
-function weatherInfo(code: number): { emoji: string; label: string } {
-  if (code === 0)              return { emoji: "☀️",  label: "בהיר" };
-  if (code <= 2)               return { emoji: "🌤️", label: "מעונן חלקית" };
-  if (code === 3)              return { emoji: "☁️",  label: "מעונן" };
-  if (code <= 49)              return { emoji: "🌫️", label: "ערפל" };
-  if (code <= 55)              return { emoji: "🌦️", label: "טפטוף" };
-  if (code <= 65)              return { emoji: "🌧️", label: "גשם" };
-  if (code <= 77)              return { emoji: "❄️",  label: "שלג" };
-  if (code <= 82)              return { emoji: "🌧️", label: "ממטרים" };
-  if (code <= 99)              return { emoji: "⛈️",  label: "סופת רעמים" };
-  return { emoji: "🌡️", label: "לא ידוע" };
-}
+const HOD_LAT = 32.1533;
+const HOD_LON = 34.8878;
+const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 export function WeatherTile() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [error, setError] = useState(false);
-
-  async function fetchWeather() {
-    try {
-      setError(false);
-      const url =
-        `https://api.open-meteo.com/v1/forecast` +
-        `?latitude=${HOD_HASHARON_LAT}&longitude=${HOD_HASHARON_LON}` +
-        `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m` +
-        `&timezone=Asia%2FJerusalem&wind_speed_unit=kmh`;
-
-      const res = await fetch(url);
-      const json = await res.json();
-      const c = json.current;
-
-      setWeather({
-        temp: Math.round(c.temperature_2m),
-        feelsLike: Math.round(c.apparent_temperature),
-        humidity: c.relative_humidity_2m,
-        windSpeed: Math.round(c.wind_speed_10m),
-        code: c.weather_code,
-      });
-      setLastUpdate(new Date());
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
-    fetchWeather();
-    const id = setInterval(fetchWeather, REFRESH_MS);
+    async function fetch_() {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast`
+          + `?latitude=${HOD_LAT}&longitude=${HOD_LON}`
+          + `&current=temperature_2m,apparent_temperature,weather_code`
+          + `&daily=weather_code,temperature_2m_max,temperature_2m_min`
+          + `&forecast_days=6&timezone=Asia%2FJerusalem`;
+        const res  = await globalThis.fetch(url);
+        const json = await res.json();
+        const c    = json.current;
+        const d    = json.daily;
+        const forecast = (d.time as string[]).slice(1, 6).map((date: string, i: number) => ({
+          day:  HE_DAYS[new Date(date + 'T12:00:00').getDay()],
+          hi:   Math.round(d.temperature_2m_max[i + 1]),
+          lo:   Math.round(d.temperature_2m_min[i + 1]),
+          code: d.weather_code[i + 1] as number,
+        }));
+        setWeather({
+          temp:      Math.round(c.temperature_2m),
+          feelsLike: Math.round(c.apparent_temperature),
+          code:      c.weather_code as number,
+          forecast,
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetch_();
+    const id = setInterval(fetch_, 30 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
-  const { emoji, label } = weather ? weatherInfo(weather.code) : { emoji: "🌡️", label: "" };
-
   return (
-    <div className="tile flex flex-col min-h-40">
-      <div className="tile-title">
-        🌍 מזג אוויר — הוד השרון
-        {lastUpdate && (
-          <span className="mr-auto text-gray-300 text-xs font-normal">
-            עודכן {lastUpdate.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
-      </div>
+    <div className="tile h-full flex flex-col">
+      <CardHead he="מזג אוויר" en="WEATHER · HOD HASHARON" />
 
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="skeleton h-16 w-full rounded-2xl" />
-        </div>
-      ) : error ? (
-        <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-          שגיאה בטעינת מזג האוויר
-          <button onClick={fetchWeather} className="mr-2 text-blue-400 underline">נסה שוב</button>
-        </div>
-      ) : weather && (
-        <div className="flex items-center gap-4 mt-1">
-          <div className="text-6xl leading-none">{emoji}</div>
-          <div className="flex-1">
-            <div className="flex items-end gap-2">
-              <span className="text-4xl font-bold text-gray-800">{weather.temp}°</span>
-              <span className="text-gray-500 text-sm mb-1 pb-0.5">מרגיש {weather.feelsLike}°</span>
+      {loading ? <Skeleton /> : weather && (
+        <>
+          {/* Hero row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18, flex: '0 0 auto' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ fontSize: 56, fontWeight: 500, color: 'var(--fd-ink)', letterSpacing: '-0.04em', lineHeight: 1, fontFamily: 'var(--fd-font-sans)' }}>
+                  {weather.temp}
+                </span>
+                <span style={{ fontSize: 24, color: 'var(--fd-muted)', fontWeight: 500 }}>°</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--fd-muted)', fontWeight: 500, marginTop: 4 }}>
+                {weatherLabel(weather.code)} · מרגיש כמו {weather.feelsLike}°
+              </div>
             </div>
-            <div className="text-gray-600 font-medium">{label}</div>
+            <WeatherGlyph kind={weatherKind(weather.code)} size={68} color="var(--fd-sage)" accent="var(--fd-terra)" />
           </div>
-          <div className="text-left text-sm text-gray-500 space-y-1 flex-shrink-0">
-            <div>💧 {weather.humidity}%</div>
-            <div>💨 {weather.windSpeed} קמ"ש</div>
+
+          {/* 5-day forecast */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', gap: 4,
+            paddingTop: 14, borderTop: '1px solid var(--fd-divider)',
+            flex: 1,
+          }}>
+            {weather.forecast.map((f) => (
+              <div key={f.day} style={{ textAlign: 'center', flex: 1 }}>
+                <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 6 }}>{f.day}</div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <WeatherGlyph kind={weatherKind(f.code)} size={22} color="var(--fd-muted)" accent="var(--fd-terra)" />
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--fd-muted)', marginTop: 4, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  {f.hi}° <span style={{ color: 'var(--fd-faint)' }}>{f.lo}°</span>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </>
       )}
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+      <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
+      <div className="skeleton" style={{ height: 40, borderRadius: 12 }} />
     </div>
   );
 }

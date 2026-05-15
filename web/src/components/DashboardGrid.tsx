@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, Timestamp } from "firebase/firestore";
 import { db } from "../firebase";
-import { ClockTile } from "../tiles/ClockTile";
+import { HeaderStrip } from "./HeaderStrip";
 import { CalendarTile } from "../tiles/CalendarTile";
 import { TasksTile } from "../tiles/TasksTile";
 import { BehaviorTile } from "../tiles/BehaviorTile";
@@ -27,10 +27,14 @@ function SyncBadge() {
     ? `עודכן ${lastSync.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} — ${lastSync.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}`
     : "טוען...";
   return (
-    <div className="text-center text-gray-400 text-xs flex items-center justify-center gap-3 py-1 flex-shrink-0">
-      <span className="opacity-50">v1.6</span>
-      <span className="flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
+    <div style={{
+      textAlign: 'center', color: 'var(--fd-faint)', fontSize: 11,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: 12, paddingBlock: 4, flexShrink: 0,
+    }}>
+      <span style={{ opacity: 0.5 }}>v1.7</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--fd-sage)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
         {label}
       </span>
     </div>
@@ -39,40 +43,50 @@ function SyncBadge() {
 
 export function DashboardGrid() {
   return (
-    <div dir="rtl" className="bg-slate-100 font-sans">
+    <div dir="rtl" style={{ fontFamily: 'var(--fd-font-sans)', color: 'var(--fd-ink)' }}>
 
-      {/* ── Desktop: fills exactly the viewport, no scroll ── */}
-      <div className="hidden lg:flex lg:flex-col lg:h-screen lg:p-3 lg:gap-2">
-        {/* Grid takes all remaining space */}
-        <div className="flex-1 min-h-0 grid grid-cols-12 grid-rows-8 gap-3">
-          <div className="col-span-3 row-span-2"><ClockTile /></div>
-          <div className="col-span-3 row-span-2"><WeatherTile /></div>
-          <div className="col-span-6 row-span-3"><CalendarTile /></div>
+      {/* ── Desktop layout ── */}
+      <div className="hidden lg:flex lg:flex-col" style={{
+        height: '100vh', padding: 28, gap: 18, boxSizing: 'border-box',
+        background: 'var(--fd-bg)',
+      }}>
+        <HeaderStrip />
 
-          <div className="col-span-3 row-span-3"><BehaviorTile /></div>
-          <div className="col-span-3 row-span-3"><TasksTile mode="today" /></div>
-
-          <div className="col-span-3 row-span-3"><SchoolTomorrowTile /></div>
-          <div className="col-span-3 row-span-3"><EventsBoardTile /></div>
-          <div className="col-span-6 row-span-3"><ChuggimTile /></div>
+        {/* Row 1: Calendar + Weather + Tasks */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1.1fr', gap: 16, height: 290, flexShrink: 0 }}>
+          <CalendarTile />
+          <WeatherTile />
+          <TasksTile mode="today" />
         </div>
+
+        {/* Row 2: Events + SchoolTomorrow + Behavior */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.4fr 0.95fr', gap: 16, height: 290, flexShrink: 0 }}>
+          <EventsBoardTile />
+          <SchoolTomorrowTile />
+          <BehaviorTile />
+        </div>
+
+        {/* Row 3: Chuggim */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <ChuggimTile />
+        </div>
+
         <SyncBadge />
       </div>
 
-      {/* ── Mobile: scrollable ── */}
-      <div className="lg:hidden p-3 flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <ClockTile />
-          <WeatherTile />
-        </div>
+      {/* ── Mobile layout ── */}
+      <div className="lg:hidden" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--fd-bg)' }}>
+        <HeaderStrip />
         <CalendarTile />
-        <div className="grid grid-cols-2 gap-3">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <WeatherTile />
           <TasksTile mode="today" />
-          <BehaviorTile />
         </div>
-        <SchoolTomorrowTile />
         <EventsBoardTile />
+        <SchoolTomorrowTile />
+        <BehaviorTile />
         <ChuggimTile />
+        <SyncBadge />
       </div>
     </div>
   );

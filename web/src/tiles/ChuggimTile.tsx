@@ -1,7 +1,9 @@
 import { where, Timestamp } from "firebase/firestore";
-import { startOfWeek, endOfWeek, format, isToday } from "date-fns";
-import { he } from "date-fns/locale";
+import { startOfWeek, endOfWeek } from "date-fns";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { CardHead } from "../components/CardHead";
+import { Avatar } from "../components/Avatar";
+import { memberOf } from "../family";
 
 interface ScheduleEvent {
   id: string;
@@ -9,20 +11,23 @@ interface ScheduleEvent {
   startTime: Timestamp;
   endTime: Timestamp;
   category: string;
+  memberId?: string[];
 }
 
-const DAY_COLORS = [
-  "from-red-50 border-red-200 text-red-800",
-  "from-orange-50 border-orange-200 text-orange-800",
-  "from-yellow-50 border-yellow-200 text-yellow-800",
-  "from-green-50 border-green-200 text-green-800",
-  "from-blue-50 border-blue-200 text-blue-800",
-  "from-indigo-50 border-indigo-200 text-indigo-800",
-  "from-purple-50 border-purple-200 text-purple-800",
+const DAYS = [
+  { he: 'ראשון', en: 'SUN', idx: 0 },
+  { he: 'שני',   en: 'MON', idx: 1 },
+  { he: 'שלישי', en: 'TUE', idx: 2 },
+  { he: 'רביעי', en: 'WED', idx: 3 },
+  { he: 'חמישי', en: 'THU', idx: 4 },
 ];
 
+function fmt(d: Date) {
+  return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
 export function ChuggimTile() {
-  const now = new Date();
+  const now       = new Date();
   const weekStart = startOfWeek(now, { weekStartsOn: 0 });
   const weekEnd   = endOfWeek(now,   { weekStartsOn: 0 });
 
@@ -32,30 +37,68 @@ export function ChuggimTile() {
     where("startTime", "<=", Timestamp.fromDate(weekEnd)),
   ]);
 
-  const sorted = [...events].sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+  const byDay = new Map<number, ScheduleEvent[]>();
+  for (const ev of events) {
+    const d = ev.startTime.toDate().getDay();
+    if (!byDay.has(d)) byDay.set(d, []);
+    byDay.get(d)!.push(ev);
+  }
 
   return (
-    <div className="tile h-full flex flex-col">
-      <div className="tile-title">🏃 חוגים השבוע</div>
+    <div className="tile flex flex-col" style={{ height: '100%' }}>
+      <CardHead he="חוגי השבוע" en="WEEKLY ACTIVITIES" />
 
-      {loading ? <Skeleton /> : sorted.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center mt-8">אין חוגים השבוע</p>
-      ) : (
-        <div className="flex-1 overflow-y-auto grid grid-cols-3 lg:grid-cols-4 gap-2 content-start">
-          {sorted.map((ev) => {
-            const day    = ev.startTime.toDate().getDay();
-            const colors = DAY_COLORS[day];
-            const today  = isToday(ev.startTime.toDate());
-            const dayName = format(ev.startTime.toDate(), "EEEE", { locale: he });
+      {loading ? <Skeleton /> : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, flex: 1, minHeight: 0 }}>
+          {DAYS.map(day => {
+            const dayEvents = (byDay.get(day.idx) ?? []).sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
             return (
-              <div
-                key={ev.id}
-                className={`bg-gradient-to-b ${colors} border rounded-xl px-3 py-2.5 ${today ? "ring-2 ring-purple-400 ring-offset-1" : ""}`}
-              >
-                <div className="text-xs opacity-60 font-medium mb-0.5">{dayName}</div>
-                <div className="font-semibold text-sm leading-tight truncate">{ev.title}</div>
-                <div className="text-xs opacity-70 mt-1">
-                  {format(ev.startTime.toDate(), "HH:mm")}–{format(ev.endTime.toDate(), "HH:mm")}
+              <div key={day.he} style={{
+                border: '1px solid var(--fd-divider)', borderRadius: 16,
+                padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
+                overflow: 'hidden',
+              }}>
+                {/* Day header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fd-ink)' }}>{day.he}</div>
+                  <div style={{ fontSize: 9, color: 'var(--fd-faint)', letterSpacing: '0.12em', fontWeight: 600 }}>{day.en}</div>
+                </div>
+
+                {/* Activities */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                  {dayEvents.length === 0 ? (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--fd-faint)', fontWeight: 500 }}>
+                      פנוי
+                    </div>
+                  ) : dayEvents.map(ev => {
+                    const rawId = ev.memberId?.[0] ?? '';
+                    const member = rawId ? memberOf(rawId) : null;
+                    const start  = fmt(ev.startTime.toDate());
+                    const end    = ev.endTime ? fmt(ev.endTime.toDate()) : '';
+                    return (
+                      <div key={ev.id} style={{
+                        background: member ? member.soft : 'var(--fd-honey-soft)',
+                        borderRadius: 10, padding: '8px 10px',
+                        display: 'flex', flexDirection: 'column', gap: 2,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {member && <Avatar member={member} size={18} />}
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--fd-ink)', lineHeight: 1.2, flex: 1, minWidth: 0 }}>
+                            {ev.title}
+                          </span>
+                        </div>
+                        <div style={{
+                          fontSize: 10.5, fontWeight: 600,
+                          color: member ? member.color : 'var(--fd-honey)',
+                          fontFamily: 'var(--fd-font-mono)',
+                          marginInlineStart: member ? 24 : 0,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          {start}{end ? `–${end}` : ''}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -68,9 +111,9 @@ export function ChuggimTile() {
 
 function Skeleton() {
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="skeleton h-16" />
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, flex: 1 }}>
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="skeleton" style={{ borderRadius: 16 }} />
       ))}
     </div>
   );

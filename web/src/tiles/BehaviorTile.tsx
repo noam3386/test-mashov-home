@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { where, Timestamp } from "firebase/firestore";
+import { where } from "firebase/firestore";
 import { format, isToday, isYesterday } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { CardHead } from "../components/CardHead";
 
 interface BehaviorEvent {
   id: string;
@@ -10,19 +11,19 @@ interface BehaviorEvent {
   categoryName: string;
   justified: number;
   teacherName: string;
-  eventDate: Timestamp;
+  eventDate: import("firebase/firestore").Timestamp;
 }
 
-const EVENT_STYLE: Record<number, { label: string; bg: string; text: string; dot: string }> = {
-  1: { label: "חיסור",            bg: "bg-red-50",     text: "text-red-600",    dot: "bg-red-400"    },
-  2: { label: "איחור",            bg: "bg-orange-50",  text: "text-orange-600", dot: "bg-orange-400" },
-  3: { label: "יציאה מוקדמת",    bg: "bg-yellow-50",  text: "text-yellow-700", dot: "bg-yellow-400" },
-  4: { label: "שכחת ציוד",       bg: "bg-blue-50",    text: "text-blue-600",   dot: "bg-blue-400"   },
-  5: { label: "הפרעה",            bg: "bg-purple-50",  text: "text-purple-600", dot: "bg-purple-400" },
-  6: { label: "אי הכנת שיעורים", bg: "bg-indigo-50",  text: "text-indigo-600", dot: "bg-indigo-400" },
-  7: { label: "אי הגשה",         bg: "bg-pink-50",    text: "text-pink-600",   dot: "bg-pink-400"   },
+const EVENT_STYLE: Record<number, { label: string; color: string; bg: string }> = {
+  1: { label: "חיסור",            color: 'var(--fd-terra)',  bg: 'var(--fd-terra-soft)'  },
+  2: { label: "איחור",            color: 'var(--fd-honey)',  bg: 'var(--fd-honey-soft)'  },
+  3: { label: "יציאה מוקדמת",    color: 'var(--fd-honey)',  bg: 'var(--fd-honey-soft)'  },
+  4: { label: "שכחת ציוד",       color: 'var(--fd-forest)', bg: 'var(--fd-forest-soft)' },
+  5: { label: "הפרעה",            color: 'var(--fd-terra)',  bg: 'var(--fd-terra-soft)'  },
+  6: { label: "אי הכנת שיעורים", color: 'var(--fd-honey)',  bg: 'var(--fd-honey-soft)'  },
+  7: { label: "אי הגשה",         color: 'var(--fd-terra)',  bg: 'var(--fd-terra-soft)'  },
 };
-const DEFAULT_STYLE = { label: "אחר", bg: "bg-gray-50", text: "text-gray-500", dot: "bg-gray-300" };
+const DEFAULT_STYLE = { label: "אחר", color: 'var(--fd-muted)', bg: 'var(--fd-divider)' };
 
 function dayLabel(date: Date) {
   if (isToday(date))     return "היום";
@@ -36,125 +37,107 @@ export function BehaviorTile() {
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
     "schoolUpdates", [where("type", "==", "behavior")]
   );
+  const events   = [...rawEvents].sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
+  const recent   = events.slice(0, 4);
+  const absences = events.filter(e => e.eventCode === 1).length;
+  const lates    = events.filter(e => e.eventCode === 2).length;
 
-  const events = [...rawEvents]
-    .sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
-
-  // Show last 3 days worth of events as summary
-  const recent = events.slice(0, 3);
-  const total  = events.length;
-
-  // Group by code for summary counts
-  const absences  = events.filter(e => e.eventCode === 1).length;
-  const lates     = events.filter(e => e.eventCode === 2).length;
-  const issues    = events.filter(e => ![1, 2].includes(e.eventCode)).length;
+  const stats = [
+    { label: 'נוכח', en: 'PRESENT', value: absences, color: 'var(--fd-sage)',   bg: 'var(--fd-sage-soft)'  },
+    { label: 'איחורים', en: 'LATE',  value: lates,    color: 'var(--fd-honey)',  bg: 'var(--fd-honey-soft)' },
+    { label: 'חיסורים', en: 'ABSENT',value: absences, color: 'var(--fd-terra)',  bg: 'var(--fd-terra-soft)' },
+  ];
 
   return (
     <>
-      <div className="tile h-full flex flex-col">
-        <div className="flex items-center justify-between mb-3">
-          <span className="tile-title mb-0">🔔 נוכחות</span>
-          {total > 0 && (
-            <button
-              onClick={() => setOpen(true)}
-              className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
-            >
-              הכל ({total})
+      <div className="tile flex flex-col" style={{ height: '100%' }}>
+        <CardHead
+          he="נוכחות · אביב"
+          en="ATTENDANCE"
+          right={events.length > 0 ? (
+            <button onClick={() => setOpen(true)}
+              style={{ fontSize: 11, color: 'var(--fd-terra)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              הכל ({events.length})
             </button>
-          )}
-        </div>
+          ) : undefined}
+        />
 
         {events.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-1">
-            <span className="text-3xl">✅</span>
-            <p className="text-xs text-gray-400">הכל תקין</p>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <div style={{ fontSize: 28 }}>✅</div>
+            <div style={{ fontSize: 12, color: 'var(--fd-faint)' }}>הכל תקין</div>
           </div>
         ) : (
           <>
-            {/* Summary chips */}
-            <div className="flex gap-2 mb-3 flex-wrap">
-              {absences > 0 && (
-                <div className="flex items-center gap-1 bg-red-50 rounded-full px-2.5 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  <span className="text-xs font-semibold text-red-600">{absences} חיסורים</span>
+            {/* Stats row */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {stats.map(s => (
+                <div key={s.en} style={{ flex: 1, padding: '8px 10px', borderRadius: 14, background: s.bg }}>
+                  <div style={{ fontSize: 20, fontWeight: 500, color: s.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {s.value}
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: s.color, marginTop: 2 }}>{s.label}</div>
+                  <div style={{ fontSize: 9, color: s.color, opacity: 0.7, letterSpacing: '0.1em', fontWeight: 600 }}>{s.en}</div>
                 </div>
-              )}
-              {lates > 0 && (
-                <div className="flex items-center gap-1 bg-orange-50 rounded-full px-2.5 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                  <span className="text-xs font-semibold text-orange-600">{lates} איחורים</span>
-                </div>
-              )}
-              {issues > 0 && (
-                <div className="flex items-center gap-1 bg-purple-50 rounded-full px-2.5 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                  <span className="text-xs font-semibold text-purple-600">{issues} אחר</span>
-                </div>
-              )}
+              ))}
             </div>
 
-            {/* Recent events list */}
-            <ul className="space-y-1.5 flex-1 overflow-hidden">
-              {recent.map((ev) => {
+            {/* Recent events */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {recent.map(ev => {
                 const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
                 const date = ev.eventDate?.toDate?.();
                 return (
-                  <li key={ev.id}
-                    onClick={() => setOpen(true)}
-                    className={`flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer hover:opacity-80 transition-opacity ${s.bg}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
-                    <span className={`flex-1 text-xs font-medium truncate ${s.text}`}>
+                  <div key={ev.id} onClick={() => setOpen(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '7px 10px', borderRadius: 10, cursor: 'pointer',
+                      background: s.bg,
+                    }}>
+                    <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: s.color }}>
                       {ev.categoryName || s.label}
-                    </span>
+                    </div>
                     {ev.justified === 1 && (
-                      <span className="text-green-500 text-xs flex-shrink-0">✓</span>
+                      <span style={{ fontSize: 11, color: 'var(--fd-sage)', fontWeight: 600 }}>✓</span>
                     )}
-                    <span className="text-gray-400 text-xs flex-shrink-0">
-                      {date ? dayLabel(date) : ""}
+                    <span style={{ fontSize: 11, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)' }}>
+                      {date ? dayLabel(date) : ''}
                     </span>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           </>
         )}
       </div>
 
-      {/* Full modal */}
+      {/* Modal */}
       {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
           onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[80vh] flex flex-col"
+          <div style={{ background: 'var(--fd-card)', borderRadius: 24, width: '100%', maxWidth: 360, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <span className="font-bold text-gray-800">🔔 כל האירועים ({total})</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--fd-divider)' }}>
+              <span style={{ fontWeight: 700, color: 'var(--fd-ink)' }}>נוכחות · כל האירועים ({events.length})</span>
               <button onClick={() => setOpen(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors">
-                ✕
-              </button>
+                style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fd-divider)', border: 'none', cursor: 'pointer', color: 'var(--fd-muted)', fontSize: 14 }}>✕</button>
             </div>
-            <div className="overflow-y-auto flex-1 p-4 space-y-2">
-              {events.map((ev) => {
+            <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {events.map(ev => {
                 const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
                 const date = ev.eventDate?.toDate?.();
                 return (
-                  <div key={ev.id} className={`rounded-xl px-3 py-2.5 ${s.bg}`}>
-                    <div className="flex items-center justify-between">
-                      <span className={`font-semibold text-sm ${s.text}`}>
-                        {ev.categoryName || s.label}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {ev.justified === 1 && (
-                          <span className="text-xs text-green-600 font-medium">✓ מוצדק</span>
-                        )}
-                        <span className="text-xs text-gray-400">
-                          {date ? format(date, "EEEE d/M", { locale: he }) : ""}
+                  <div key={ev.id} style={{ borderRadius: 12, padding: '10px 14px', background: s.bg }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: s.color }}>{ev.categoryName || s.label}</span>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {ev.justified === 1 && <span style={{ fontSize: 11, color: 'var(--fd-sage)', fontWeight: 600 }}>✓ מוצדק</span>}
+                        <span style={{ fontSize: 11, color: 'var(--fd-faint)' }}>
+                          {date ? format(date, "EEEE d/M", { locale: he }) : ''}
                         </span>
                       </div>
                     </div>
-                    {ev.teacherName && (
-                      <div className="text-xs text-gray-400 mt-0.5">{ev.teacherName}</div>
-                    )}
+                    {ev.teacherName && <div style={{ fontSize: 11, color: 'var(--fd-faint)', marginTop: 2 }}>{ev.teacherName}</div>}
                   </div>
                 );
               })}

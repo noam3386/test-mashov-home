@@ -1,21 +1,24 @@
 import { Timestamp } from "firebase/firestore";
-import { format, isToday, isTomorrow, startOfDay, addDays } from "date-fns";
+import { format, isToday, isTomorrow, startOfDay, endOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { CardHead } from "../components/CardHead";
+import { Avatar } from "../components/Avatar";
+import { memberOf } from "../family";
 
 interface ScheduleEvent {
   id: string;
   title: string;
   startTime: Timestamp;
   category: string;
-  allDay: boolean;
+  memberId?: string[];
 }
 
 interface SchoolUpdate {
   id: string;
   type: string;
-  title: string;
   subject: string;
+  title: string;
   body: string;
   eventDate: Timestamp;
   read: boolean;
@@ -26,147 +29,141 @@ interface Task {
   title: string;
   status: string;
   dueDate: Timestamp;
-  priority: string;
+  assignedTo: string[];
 }
 
 interface EventItem {
   id: string;
   date: Date;
   label: string;
-  tag: string;
-  tagColor: string;
-  dot: string;
+  en: string;
+  when: string;
+  time: string;
+  barColor: string;
+  who: string | null; // family member id
 }
 
-const CATEGORY_COLOR: Record<string, string> = {
-  chug:        "bg-purple-100 text-purple-700",
-  school:      "bg-blue-100 text-blue-700",
-  family:      "bg-green-100 text-green-700",
-  appointment: "bg-amber-100 text-amber-700",
-};
-
-const CATEGORY_DOT: Record<string, string> = {
-  chug:        "bg-purple-400",
-  school:      "bg-blue-400",
-  family:      "bg-green-400",
-  appointment: "bg-amber-400",
-};
-
-const PRIORITY_DOT: Record<string, string> = {
-  high: "bg-red-400", medium: "bg-amber-400", low: "bg-green-400",
-};
-
-function dayLabel(date: Date): string {
-  if (isToday(date))    return "היום";
-  if (isTomorrow(date)) return "מחר";
-  return format(date, "EEEE d/M", { locale: he });
+function whenLabel(date: Date): string {
+  if (isToday(date))    return 'היום';
+  if (isTomorrow(date)) return 'מחר';
+  return format(date, 'EEEE', { locale: he });
 }
+
+const CAT_COLOR: Record<string, string> = {
+  chug: 'var(--fd-honey)', family: 'var(--fd-sage)', appointment: 'var(--fd-terra)',
+};
 
 export function EventsBoardTile() {
   const now   = new Date();
   const start = startOfDay(now);
-  const end   = addDays(start, 3);
+  const end   = endOfDay(addDays(now, 6));
 
   const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>("schedule", []);
   const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", []);
   const { data: tasks }          = useRealtimeCollection<Task>("tasks", []);
 
-  // Build unified event list
   const items: EventItem[] = [];
 
-  // Calendar events — today + 2 days, skip pure "school" category (redundant with timetable)
   for (const ev of scheduleEvents) {
     const d = ev.startTime?.toDate?.();
-    if (!d || d < start || d > end) continue;
-    if (ev.category === "school") continue;
+    if (!d || d < start || d > end || ev.category === "school") continue;
+    const memberId = ev.memberId?.[0] ?? null;
     items.push({
-      id:       "cal_" + ev.id,
+      id:       'cal_' + ev.id,
       date:     d,
       label:    ev.title,
-      tag:      ev.category === "chug" ? "חוג" : ev.category === "family" ? "משפחה" : "פגישה",
-      tagColor: CATEGORY_COLOR[ev.category] ?? "bg-gray-100 text-gray-600",
-      dot:      CATEGORY_DOT[ev.category]   ?? "bg-gray-300",
+      en:       ev.category,
+      when:     whenLabel(d),
+      time:     format(d, 'HH:mm'),
+      barColor: isToday(d) ? 'var(--fd-terra)' : (CAT_COLOR[ev.category] ?? 'var(--fd-honey)'),
+      who:      memberId ? memberId.replace(/^uid_/, '') : null,
     });
   }
 
-  // Homework — pending (read=false), due in next 21 days
   for (const u of schoolUpdates) {
     if (u.type !== "homework" || u.read) continue;
     const d = u.eventDate?.toDate?.();
     if (!d || d < start || d > end) continue;
     items.push({
-      id:       "hw_" + u.id,
+      id:       'hw_' + u.id,
       date:     d,
-      label:    u.subject ? `${u.subject}${u.body ? ` — ${u.body}` : ""}` : u.title,
-      tag:      "שיעורי בית",
-      tagColor: "bg-sky-100 text-sky-700",
-      dot:      "bg-sky-400",
+      label:    u.subject ? `${u.subject}${u.body ? ` — ${u.body}` : ''}` : u.title,
+      en:       'Homework',
+      when:     whenLabel(d),
+      time:     '',
+      barColor: 'var(--fd-honey)',
+      who:      'aviv',
     });
   }
 
-  // Tasks — pending, due in next 21 days
   for (const t of tasks) {
     if (t.status === "done") continue;
     const d = t.dueDate?.toDate?.();
     if (!d || d < start || d > end) continue;
+    const memberId = t.assignedTo?.[0];
     items.push({
-      id:       "task_" + t.id,
+      id:       'task_' + t.id,
       date:     d,
       label:    t.title,
-      tag:      "משימה",
-      tagColor: "bg-rose-100 text-rose-700",
-      dot:      PRIORITY_DOT[t.priority] ?? "bg-gray-300",
+      en:       'Task',
+      when:     whenLabel(d),
+      time:     format(d, 'HH:mm'),
+      barColor: isToday(d) ? 'var(--fd-terra)' : 'var(--fd-muted)',
+      who:      memberId && memberId !== 'family' ? memberId.replace(/^uid_/, '') : null,
     });
   }
 
-  // Sort by date
   items.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // Group by day
-  const groups = new Map<string, { label: string; date: Date; items: EventItem[] }>();
-  for (const item of items) {
-    const key = format(item.date, "yyyy-MM-dd");
-    if (!groups.has(key)) {
-      groups.set(key, { label: dayLabel(item.date), date: item.date, items: [] });
-    }
-    groups.get(key)!.items.push(item);
-  }
-
-  const days = [...groups.values()];
-
   return (
-    <div className="tile h-full flex flex-col">
-      <div className="tile-title">📌 אירועים חשובים</div>
+    <div className="tile flex flex-col" style={{ height: '100%' }}>
+      <CardHead he="אירועים השבוע" en="THIS WEEK" />
 
-      {days.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center mt-8">אין אירועים ב-3 הימים הקרובים</p>
+      {items.length === 0 ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fd-faint)', fontSize: 13 }}>
+          אין אירועים קרובים
+        </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-3 pl-1">
-          {days.map((group) => {
-            const isNow = isToday(group.date);
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {items.slice(0, 7).map((item, i) => {
+            const member = item.who ? memberOf(item.who) : null;
+            const isNow  = item.when === 'היום';
             return (
-              <div key={format(group.date, "yyyy-MM-dd")}>
-                {/* Day header */}
-                <div className={`text-xs font-bold mb-1.5 sticky top-0 bg-white pb-0.5 ${
-                  isNow ? "text-blue-600" : "text-gray-400"
-                }`}>
-                  {group.label}
-                  {isNow && <span className="mr-1.5 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 align-middle" />}
+              <div key={item.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 0',
+                borderBottom: i < Math.min(items.length, 7) - 1 ? '1px solid var(--fd-divider)' : 'none',
+              }}>
+                {/* Color bar */}
+                <div style={{ width: 4, alignSelf: 'stretch', borderRadius: 3, background: item.barColor, flexShrink: 0 }} />
+
+                {/* Label */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--fd-ink)', lineHeight: 1.25 }}>
+                    {item.label}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--fd-faint)', marginTop: 2, letterSpacing: '0.04em' }}>
+                    {item.en}
+                  </div>
                 </div>
 
-                {/* Events */}
-                <div className="space-y-1">
-                  {group.items.map((item) => (
-                    <div key={item.id}
-                      className="flex items-start gap-2 rounded-xl px-2.5 py-2 bg-gray-50 hover:bg-gray-100 transition-colors">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${item.dot}`} />
-                      <span className="flex-1 text-sm text-gray-800 leading-snug line-clamp-2">{item.label}</span>
-                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${item.tagColor}`}>
-                        {item.tag}
-                      </span>
+                {/* Day + time */}
+                <div style={{ textAlign: 'end', flexShrink: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: isNow ? 'var(--fd-terra)' : 'var(--fd-muted)' }}>
+                    {item.when}
+                  </div>
+                  {item.time && (
+                    <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)', marginTop: 2 }}>
+                      {item.time}
                     </div>
-                  ))}
+                  )}
                 </div>
+
+                {/* Avatar */}
+                {member
+                  ? <Avatar member={member} size={26} />
+                  : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--fd-honey-soft)', color: 'var(--fd-honey)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>בית</div>
+                }
               </div>
             );
           })}
