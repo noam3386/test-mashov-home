@@ -80,21 +80,27 @@ function TaskForm({
 
 export function TasksTile({ mode }: Props) {
   const now = new Date();
-  const [adding,    setAdding]    = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding,      setAdding]      = useState(false);
+  const [editingId,   setEditingId]   = useState<string | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
 
   const { data: allTasks, loading } = useRealtimeCollection<Task>("tasks", []);
 
   const tasks = allTasks.filter(t => {
+    if (t.status === "done") return false;
     if (mode === "today") {
       const due = t.dueDate?.toDate?.();
       if (!due) return false;
       return due >= startOfDay(now) && due <= endOfDay(now);
     }
-    return t.status !== "done";
+    return true;
   });
 
-  const remaining = tasks.filter(t => t.status !== "done").length;
+  const archived = allTasks
+    .filter(t => t.status === "done")
+    .sort((a, b) => (b.dueDate?.toMillis?.() ?? 0) - (a.dueDate?.toMillis?.() ?? 0));
+
+  const remaining = tasks.length;
 
   async function toggle(task: Task) {
     if (editingId) return;
@@ -128,8 +134,16 @@ export function TasksTile({ mode }: Props) {
         he="משימות להיום"
         en="TASKS · TODAY"
         right={
-          <div style={{ fontSize: 12, color: 'var(--fd-muted)', fontWeight: 600 }}>
-            <span style={{ color: 'var(--fd-terra)' }}>{remaining}</span> נותרו
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {archived.length > 0 && (
+              <button onClick={() => setShowArchive(true)}
+                style={{ fontSize: 11, color: 'var(--fd-faint)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                ארכיון ({archived.length})
+              </button>
+            )}
+            <div style={{ fontSize: 12, color: 'var(--fd-muted)', fontWeight: 600 }}>
+              <span style={{ color: 'var(--fd-terra)' }}>{remaining}</span> נותרו
+            </div>
           </div>
         }
       />
@@ -213,6 +227,49 @@ export function TasksTile({ mode }: Props) {
               אין משימות להיום
             </div>
           )}
+        </div>
+      )}
+
+      {/* Archive modal */}
+      {showArchive && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
+          onClick={() => setShowArchive(false)}>
+          <div style={{ background: 'var(--fd-card)', borderRadius: 24, width: '100%', maxWidth: 360, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--fd-divider)' }}>
+              <span style={{ fontWeight: 700, color: 'var(--fd-ink)' }}>ארכיון משימות ({archived.length})</span>
+              <button onClick={() => setShowArchive(false)}
+                style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fd-divider)', border: 'none', cursor: 'pointer', color: 'var(--fd-muted)', fontSize: 14 }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {archived.map(t => {
+                const member = (t.assignedTo?.[0] && t.assignedTo[0] !== 'family')
+                  ? memberOf(t.assignedTo[0]) : null;
+                const dueDate = t.dueDate?.toDate?.();
+                return (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: 'var(--fd-divider)', opacity: 0.7 }}>
+                    <div onClick={() => toggle(t)}
+                      style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, background: 'var(--fd-sage)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, cursor: 'pointer' }}>
+                      ✓
+                    </div>
+                    <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--fd-muted)', textDecoration: 'line-through', minWidth: 0 }}>
+                      {t.title}
+                    </div>
+                    {dueDate && (
+                      <span style={{ fontSize: 10, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)', flexShrink: 0 }}>
+                        {format(dueDate, "d/M")}
+                      </span>
+                    )}
+                    {member ? <Avatar member={member} size={20} /> : null}
+                    <button onClick={() => deleteTask(t.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fd-faint)', fontSize: 14, padding: '0 2px', flexShrink: 0 }}>
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
