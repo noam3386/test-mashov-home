@@ -20,8 +20,8 @@ service cloud.firestore {
 
     match /schoolUpdates/{updateId} {
       allow read: if true;
-      allow update: if isAuth() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      // home dashboard — allow toggling read flag without login
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow create, delete: if false;
     }
 
