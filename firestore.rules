@@ -26,9 +26,7 @@ service cloud.firestore {
     }
 
     match /tasks/{taskId} {
-      allow read: if true;
-      allow create, delete: if isParent();
-      allow update: if isAuth() || isParent();
+      allow read, write: if true;
     }
 
     match /members/{memberId} {
