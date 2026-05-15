@@ -74,9 +74,27 @@ export function SchoolTomorrowTile() {
       {loading ? <Skeleton /> : (
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
 
-          {!isSchoolDay && (
+          {!isSchoolDay && pendingHw.length === 0 && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fd-faint)', fontSize: 13 }}>
               מחר אין בית ספר 🎉
+            </div>
+          )}
+
+          {!isSchoolDay && pendingHw.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 10, color: 'var(--fd-faint)', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 2 }}>שיעורי בית פתוחים</div>
+              {pendingHw.map(hw => (
+                <div key={hw.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'var(--fd-task-warm)', border: '1px solid var(--fd-honey-soft)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--fd-ink)' }}>{hw.subject}</div>
+                    {hw.body && <div style={{ fontSize: 11.5, color: 'var(--fd-muted)', marginTop: 1 }}>{hw.body}</div>}
+                  </div>
+                  <button onClick={() => toggleHw(hw.id, hw.read)}
+                    style={{ width: 18, height: 18, borderRadius: 6, border: '1.5px solid var(--fd-faint)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {hw.read ? <span style={{ color: 'var(--fd-sage)', fontSize: 12 }}>✓</span> : null}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -149,7 +167,7 @@ export function SchoolTomorrowTile() {
             </div>
           )}
 
-          {isSchoolDay && timetable.length === 0 && pendingHw.length === 0 && (
+          {isSchoolDay && timetable.length === 0 && pendingHw.length === 0 && hatamot.length === 0 && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fd-faint)', fontSize: 13 }}>
               אין מידע עדיין
             </div>
