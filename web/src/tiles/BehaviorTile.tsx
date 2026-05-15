@@ -41,7 +41,7 @@ export function BehaviorTile() {
     .sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
 
   // Show last 3 days worth of events as summary
-  const recent = events.slice(0, 5);
+  const recent = events.slice(0, 3);
   const total  = events.length;
 
   // Group by code for summary counts

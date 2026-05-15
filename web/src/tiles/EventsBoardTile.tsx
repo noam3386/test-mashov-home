@@ -65,7 +65,7 @@ function dayLabel(date: Date): string {
 export function EventsBoardTile() {
   const now   = new Date();
   const start = startOfDay(now);
-  const end   = addDays(start, 21);
+  const end   = addDays(start, 3);
 
   const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>("schedule", []);
   const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", []);
@@ -74,7 +74,7 @@ export function EventsBoardTile() {
   // Build unified event list
   const items: EventItem[] = [];
 
-  // Calendar events — next 21 days, skip pure "school" category (redundant with timetable)
+  // Calendar events — today + 2 days, skip pure "school" category (redundant with timetable)
   for (const ev of scheduleEvents) {
     const d = ev.startTime?.toDate?.();
     if (!d || d < start || d > end) continue;
@@ -139,7 +139,7 @@ export function EventsBoardTile() {
       <div className="tile-title">📌 אירועים חשובים</div>
 
       {days.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center mt-8">אין אירועים ב-21 הימים הקרובים</p>
+        <p className="text-gray-400 text-sm text-center mt-8">אין אירועים ב-3 הימים הקרובים</p>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-3 pl-1">
           {days.map((group) => {
