@@ -7,11 +7,11 @@ import { Avatar } from './Avatar';
 function greeting(now: Date): string {
   const h = now.getHours();
   const day = now.getDay();
-  if (day === 6 || (day === 5 && h >= 17)) return 'שבת שלום, משפחה';
-  if (h >= 5 && h < 12)  return 'בוקר טוב, משפחה';
-  if (h >= 12 && h < 17) return 'צהריים טובים, משפחה';
-  if (h >= 17 && h < 21) return 'ערב טוב, משפחה';
-  return 'לילה טוב, משפחה';
+  if (day === 6 || (day === 5 && h >= 17)) return 'שבת שלום, משפחת מונסונגו';
+  if (h >= 5 && h < 12)  return 'בוקר טוב, משפחת מונסונגו';
+  if (h >= 12 && h < 17) return 'צהריים טובים, משפחת מונסונגו';
+  if (h >= 17 && h < 21) return 'ערב טוב, משפחת מונסונגו';
+  return 'לילה טוב, משפחת מונסונגו';
 }
 
 export function HeaderStrip() {
@@ -27,7 +27,8 @@ export function HeaderStrip() {
   const ss      = format(now, 'ss');
 
   return (
-    <div style={{
+    /* dir="ltr" keeps avatars on the left and clock on the right, matching the design */
+    <div dir="ltr" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '4px 0', flexShrink: 0,
     }}>
@@ -41,20 +42,18 @@ export function HeaderStrip() {
           ))}
         </div>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--fd-ink)', letterSpacing: '-0.01em' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--fd-ink)', letterSpacing: '-0.01em', direction: 'rtl' }}>
             {greeting(now)}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--fd-muted)', marginTop: 2, fontWeight: 500 }}>
+          <div style={{ fontSize: 12, color: 'var(--fd-muted)', marginTop: 2, fontWeight: 500, direction: 'rtl' }}>
             נועם · חן · אביב · איתן
-            <span style={{ color: 'var(--fd-faint)', margin: '0 8px' }}>·</span>
-            Noam · Chen · Aviv · Eitan
           </div>
         </div>
       </div>
 
       {/* Right: location + date + clock */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-        <div style={{ textAlign: 'end' }}>
+        <div style={{ textAlign: 'end', direction: 'rtl' }}>
           <div style={{ fontSize: 11, color: 'var(--fd-faint)', letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 500 }}>
             HOD HASHARON
           </div>
@@ -63,7 +62,8 @@ export function HeaderStrip() {
           </div>
         </div>
         <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--fd-divider)' }} />
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+        {/* dir="ltr" ensures HH:MM appears before :SS regardless of page direction */}
+        <div dir="ltr" style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
           <span style={{
             fontSize: 36, fontWeight: 500, color: 'var(--fd-ink)',
             fontFamily: 'var(--fd-font-mono)', letterSpacing: '-0.04em',
