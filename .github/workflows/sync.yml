@@ -1,0 +1,29 @@
+name: Sync Dashboard Data
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour (calendar + Mashov)
+  workflow_dispatch:        # manual trigger from GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install dependencies
+        run: cd scripts && npm ci
+
+      - name: Write Firebase service account
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > scripts/serviceAccount.json
+
+      - name: Run sync
+        run: node scripts/run.js
+        env:
+          CI: true

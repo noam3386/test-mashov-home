@@ -273,13 +273,18 @@ async function syncMashov() {
 // ─── Main Loop ────────────────────────────────────────────────────────────────
 
 log("🚀", "Family Dashboard Sync — מתחיל");
-log("⏰", `יומן: כל ${CALENDAR_SYNC_INTERVAL_MS / 60000} דקות | מחוון: כל ${MASHOV_SYNC_INTERVAL_MS / 60000} דקות`);
 
-// Run immediately on start
 await syncCalendar();
 await syncMashov();
 
-// Then on intervals
+// In CI (GitHub Actions) — exit after one run
+if (process.env.CI) {
+  log("✅", "סנכרון הסתיים — יוצא");
+  process.exit(0);
+}
+
+// Local: keep running on intervals
+log("⏰", `יומן: כל ${CALENDAR_SYNC_INTERVAL_MS / 60000} דקות | מחוון: כל ${MASHOV_SYNC_INTERVAL_MS / 60000} דקות`);
 setInterval(syncCalendar, CALENDAR_SYNC_INTERVAL_MS);
 setInterval(syncMashov,   MASHOV_SYNC_INTERVAL_MS);
 
