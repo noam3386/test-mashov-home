@@ -17,14 +17,16 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
-      - name: Install web dependencies
+      - name: Install dependencies
         run: cd web && npm ci
 
       - name: Build
         run: cd web && npm run build
 
       - name: Deploy to Firebase Hosting
-        run: |
-          npm install -g firebase-tools
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
-          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json firebase deploy --only hosting --non-interactive --project family-organizer-9b56c
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: family-organizer-9b56c
+          channelId: live
