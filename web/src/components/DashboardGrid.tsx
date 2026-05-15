@@ -27,7 +27,7 @@ function SyncBadge() {
     ? `עודכן ${lastSync.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} — ${lastSync.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}`
     : "טוען...";
   return (
-    <div className="text-center text-gray-400 text-xs mt-2 flex items-center justify-center gap-3">
+    <div className="text-center text-gray-400 text-xs flex items-center justify-center gap-3 py-1 flex-shrink-0">
       <span className="opacity-50">v1.6</span>
       <span className="flex items-center gap-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
@@ -39,28 +39,28 @@ function SyncBadge() {
 
 export function DashboardGrid() {
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-100 font-sans p-3">
+    <div dir="rtl" className="bg-slate-100 font-sans">
 
-      {/* ── Desktop / Tablet: fixed 8-row grid that fills the viewport ── */}
-      <div className="hidden lg:grid lg:grid-cols-12 lg:grid-rows-8 lg:gap-3 lg:h-[calc(100vh-2.5rem)]">
+      {/* ── Desktop: fills exactly the viewport, no scroll ── */}
+      <div className="hidden lg:flex lg:flex-col lg:h-screen lg:p-3 lg:gap-2">
+        {/* Grid takes all remaining space */}
+        <div className="flex-1 min-h-0 grid grid-cols-12 grid-rows-8 gap-3">
+          <div className="col-span-3 row-span-2"><ClockTile /></div>
+          <div className="col-span-3 row-span-2"><WeatherTile /></div>
+          <div className="col-span-6 row-span-3"><CalendarTile /></div>
 
-        {/* Row 1-2: top bar */}
-        <div className="col-span-3 row-span-2"><ClockTile /></div>
-        <div className="col-span-3 row-span-2"><WeatherTile /></div>
-        <div className="col-span-6 row-span-3"><CalendarTile /></div>
+          <div className="col-span-3 row-span-3"><BehaviorTile /></div>
+          <div className="col-span-3 row-span-3"><TasksTile mode="today" /></div>
 
-        {/* Row 3-5: middle */}
-        <div className="col-span-3 row-span-3"><BehaviorTile /></div>
-        <div className="col-span-3 row-span-3"><TasksTile mode="today" /></div>
-
-        {/* Row 6-8: bottom */}
-        <div className="col-span-3 row-span-3"><SchoolTomorrowTile /></div>
-        <div className="col-span-3 row-span-3"><EventsBoardTile /></div>
-        <div className="col-span-6 row-span-3"><ChuggimTile /></div>
+          <div className="col-span-3 row-span-3"><SchoolTomorrowTile /></div>
+          <div className="col-span-3 row-span-3"><EventsBoardTile /></div>
+          <div className="col-span-6 row-span-3"><ChuggimTile /></div>
+        </div>
+        <SyncBadge />
       </div>
 
-      {/* ── Mobile: single column, scrollable ── */}
-      <div className="lg:hidden flex flex-col gap-3">
+      {/* ── Mobile: scrollable ── */}
+      <div className="lg:hidden p-3 flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <ClockTile />
           <WeatherTile />
@@ -74,8 +74,6 @@ export function DashboardGrid() {
         <EventsBoardTile />
         <ChuggimTile />
       </div>
-
-      <SyncBadge />
     </div>
   );
 }
