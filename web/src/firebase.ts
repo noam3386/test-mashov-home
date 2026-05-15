@@ -3,12 +3,12 @@ import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAkPQBeZhIpXZRK4ACppqrR72hCw1lYkbk",
+  authDomain: "family-organizer-9b56c.firebaseapp.com",
+  projectId: "family-organizer-9b56c",
+  storageBucket: "family-organizer-9b56c.firebasestorage.app",
+  messagingSenderId: "759974493641",
+  appId: "1:759974493641:web:81337d42bc70654a30bc18",
 };
 
 const app = initializeApp(firebaseConfig);
