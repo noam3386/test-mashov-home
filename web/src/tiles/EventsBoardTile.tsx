@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, where } from "firebase/firestore";
 import { format, isToday, isTomorrow, startOfDay, endOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
@@ -58,9 +58,17 @@ export function EventsBoardTile() {
   const start = startOfDay(now);
   const end   = endOfDay(addDays(now, 6));
 
-  const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>("schedule", []);
-  const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", []);
-  const { data: tasks }          = useRealtimeCollection<Task>("tasks", []);
+  const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>("schedule", [
+    where("startTime", ">=", Timestamp.fromDate(start)),
+    where("startTime", "<=", Timestamp.fromDate(end)),
+  ]);
+  const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", [
+    where("type", "==", "homework"),
+    where("read", "==", false),
+  ]);
+  const { data: tasks }          = useRealtimeCollection<Task>("tasks", [
+    where("status", "!=", "done"),
+  ]);
 
   const items: EventItem[] = [];
 

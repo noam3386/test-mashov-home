@@ -105,27 +105,35 @@ export function TasksTile({ mode }: Props) {
   async function toggle(task: Task) {
     if (editingId) return;
     const done = task.status !== "done";
-    await updateDoc(doc(db, "tasks", task.id), { status: done ? "done" : "pending", updatedAt: new Date() });
+    try {
+      await updateDoc(doc(db, "tasks", task.id), { status: done ? "done" : "pending", updatedAt: new Date() });
+    } catch (e) { console.error("toggle task failed", e); }
   }
 
   async function addTask(title: string, priority: string, dueDate: string) {
-    await addDoc(collection(db, "tasks"), {
-      title, priority, status: "pending",
-      dueDate: Timestamp.fromDate(new Date(dueDate + "T23:59:59")),
-      category: "personal", assignedTo: ["family"],
-      createdAt: new Date(), updatedAt: new Date(),
-    });
-    setAdding(false);
+    try {
+      await addDoc(collection(db, "tasks"), {
+        title, priority, status: "pending",
+        dueDate: Timestamp.fromDate(new Date(dueDate + "T23:59:59")),
+        category: "personal", assignedTo: ["family"],
+        createdAt: new Date(), updatedAt: new Date(),
+      });
+      setAdding(false);
+    } catch (e) { console.error("add task failed", e); }
   }
 
   async function editTask(id: string, title: string, priority: string, dueDate: string) {
-    await updateDoc(doc(db, "tasks", id), { title, priority, dueDate: Timestamp.fromDate(new Date(dueDate + "T23:59:59")), updatedAt: new Date() });
-    setEditingId(null);
+    try {
+      await updateDoc(doc(db, "tasks", id), { title, priority, dueDate: Timestamp.fromDate(new Date(dueDate + "T23:59:59")), updatedAt: new Date() });
+      setEditingId(null);
+    } catch (e) { console.error("edit task failed", e); }
   }
 
   async function deleteTask(id: string) {
-    await deleteDoc(doc(db, "tasks", id));
-    setEditingId(null);
+    try {
+      await deleteDoc(doc(db, "tasks", id));
+      setEditingId(null);
+    } catch (e) { console.error("delete task failed", e); }
   }
 
   return (

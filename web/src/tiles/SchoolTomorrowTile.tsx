@@ -53,7 +53,9 @@ export function SchoolTomorrowTile() {
   const hatamot = schoolUpdates.filter(u => u.type === "hatamot");
 
   async function toggleHw(id: string, current: boolean) {
-    await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
+    try {
+      await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
+    } catch (e) { console.error("toggleHw failed", e); }
   }
 
   const loading = ttLoading || suLoading;

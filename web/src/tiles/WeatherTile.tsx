@@ -78,8 +78,8 @@ export function WeatherTile() {
             paddingTop: 14, borderTop: '1px solid var(--fd-divider)',
             flex: 1,
           }}>
-            {weather.forecast.map((f) => (
-              <div key={f.day} style={{ textAlign: 'center', flex: 1 }}>
+            {weather.forecast.map((f, i) => (
+              <div key={i} style={{ textAlign: 'center', flex: 1 }}>
                 <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 6 }}>{f.day}</div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <WeatherGlyph kind={weatherKind(f.code)} size={22} color="var(--fd-muted)" accent="var(--fd-terra)" />
