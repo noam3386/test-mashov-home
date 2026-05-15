@@ -242,7 +242,7 @@ async function syncMashov() {
         const docId = `tt_${student.memberId}_d${tt.day}_l${tt.lesson}`;
         return { ref: db.collection("timetable").doc(docId), data: {
           memberId: student.memberId,
-          day: tt.day, lesson: tt.lesson, roomNum: tt.roomNum ?? "",
+          day: tt.day - 1, lesson: tt.lesson, roomNum: tt.roomNum ?? "",
           subjectName: gd.subjectName ?? tt.subjectName ?? "",
           groupName: gd.groupName ?? "",
           teacherName: gd.groupTeachers?.[0]?.teacherName ?? "",
