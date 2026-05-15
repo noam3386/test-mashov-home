@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { where, Timestamp, doc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
+import { Timestamp, doc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
 import { startOfDay, endOfDay, format } from "date-fns";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 import { db } from "../firebase";
-import { useAuth } from "../hooks/useAuth";
 
 interface Task {
   id: string;
@@ -100,23 +99,20 @@ function TaskForm({
 }
 
 export function TasksTile({ mode }: Props) {
-  const { uid } = useAuth();
   const now = new Date();
   const [adding,   setAdding]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const constraints = mode === "today"
-    ? [
-        where("assignedTo", "array-contains", uid ?? ""),
-        where("dueDate", ">=", Timestamp.fromDate(startOfDay(now))),
-        where("dueDate", "<=", Timestamp.fromDate(endOfDay(now))),
-      ]
-    : [
-        where("assignedTo", "array-contains", uid ?? ""),
-        where("status", "==", "pending"),
-      ];
+  const { data: allTasks, loading } = useRealtimeCollection<Task>("tasks", []);
 
-  const { data: tasks, loading } = useRealtimeCollection<Task>("tasks", constraints);
+  const tasks = allTasks.filter((t) => {
+    if (mode === "today") {
+      const due = t.dueDate?.toDate?.();
+      if (!due) return false;
+      return due >= startOfDay(now) && due <= endOfDay(now);
+    }
+    return t.status !== "done";
+  });
 
   async function toggle(task: Task) {
     if (editingId) return;
@@ -124,7 +120,6 @@ export function TasksTile({ mode }: Props) {
     await updateDoc(doc(db, "tasks", task.id), {
       status: done ? "done" : "pending",
       completedAt: done ? new Date() : null,
-      completedBy: done ? uid : null,
       updatedAt: new Date(),
     });
   }
@@ -137,7 +132,7 @@ export function TasksTile({ mode }: Props) {
       status: "pending",
       dueDate: Timestamp.fromDate(due),
       category: "personal",
-      assignedTo: [uid ?? ""],
+      assignedTo: ["family"],
       createdAt: new Date(),
       updatedAt: new Date(),
     });
