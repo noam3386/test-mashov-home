@@ -89,9 +89,9 @@ export function CalendarTile() {
           <div className="card-subtitle">{monthEn}</div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={() => setViewMonth(m => addMonths(m, 1))}
-            style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fd-muted)', cursor: 'pointer', fontSize: 16 }}>‹</button>
           <button onClick={() => setViewMonth(m => addMonths(m, -1))}
+            style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fd-muted)', cursor: 'pointer', fontSize: 16 }}>‹</button>
+          <button onClick={() => setViewMonth(m => addMonths(m, 1))}
             style={{ width: 28, height: 28, borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--fd-muted)', cursor: 'pointer', fontSize: 16 }}>›</button>
         </div>
       </div>

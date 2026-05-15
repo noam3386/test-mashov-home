@@ -32,30 +32,25 @@ function dayLabel(date: Date) {
 }
 
 export function BehaviorTile() {
-  const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showAll, setShowAll]       = useState(false);
 
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
     "schoolUpdates", [where("type", "==", "behavior")]
   );
-  const events   = [...rawEvents].sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
-  const recent   = events.slice(0, 4);
-  const absences = events.filter(e => e.eventCode === 1).length;
-  const lates    = events.filter(e => e.eventCode === 2).length;
+  const events = [...rawEvents].sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
+  const recent = events.slice(0, 5);
 
-  const stats = [
-    { label: 'נוכח', en: 'PRESENT', value: absences, color: 'var(--fd-sage)',   bg: 'var(--fd-sage-soft)'  },
-    { label: 'איחורים', en: 'LATE',  value: lates,    color: 'var(--fd-honey)',  bg: 'var(--fd-honey-soft)' },
-    { label: 'חיסורים', en: 'ABSENT',value: absences, color: 'var(--fd-terra)',  bg: 'var(--fd-terra-soft)' },
-  ];
+  const selected = selectedId ? events.find(e => e.id === selectedId) ?? null : null;
 
   return (
     <>
-      <div className="tile flex flex-col" style={{ height: '100%' }}>
+      <div className="tile flex flex-col" style={{ height: '100%', position: 'relative' }}>
         <CardHead
           he="נוכחות · אביב"
           en="ATTENDANCE"
           right={events.length > 0 ? (
-            <button onClick={() => setOpen(true)}
+            <button onClick={() => setShowAll(true)}
               style={{ fontSize: 11, color: 'var(--fd-terra)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               הכל ({events.length})
             </button>
@@ -68,31 +63,19 @@ export function BehaviorTile() {
             <div style={{ fontSize: 12, color: 'var(--fd-faint)' }}>הכל תקין</div>
           </div>
         ) : (
-          <>
-            {/* Stats row */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              {stats.map(s => (
-                <div key={s.en} style={{ flex: 1, padding: '8px 10px', borderRadius: 14, background: s.bg }}>
-                  <div style={{ fontSize: 20, fontWeight: 500, color: s.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                    {s.value}
-                  </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: s.color, marginTop: 2 }}>{s.label}</div>
-                  <div style={{ fontSize: 9, color: s.color, opacity: 0.7, letterSpacing: '0.1em', fontWeight: 600 }}>{s.en}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Recent events */}
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {recent.map(ev => {
-                const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
-                const date = ev.eventDate?.toDate?.();
-                return (
-                  <div key={ev.id} onClick={() => setOpen(true)}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {recent.map(ev => {
+              const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
+              const date = ev.eventDate?.toDate?.();
+              const isSelected = ev.id === selectedId;
+              return (
+                <div key={ev.id}>
+                  <div
+                    onClick={() => setSelectedId(isSelected ? null : ev.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '7px 10px', borderRadius: 10, cursor: 'pointer',
-                      background: s.bg,
+                      padding: '7px 10px', borderRadius: isSelected ? '10px 10px 0 0' : 10,
+                      cursor: 'pointer', background: s.bg,
                     }}>
                     <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: s.color }}>
                       {ev.categoryName || s.label}
@@ -104,22 +87,43 @@ export function BehaviorTile() {
                       {date ? dayLabel(date) : ''}
                     </span>
                   </div>
-                );
-              })}
-            </div>
-          </>
+
+                  {isSelected && selected && (() => {
+                    const date2 = selected.eventDate?.toDate?.();
+                    return (
+                      <div style={{ background: s.bg, borderRadius: '0 0 10px 10px', padding: '6px 10px 8px', borderTop: `1px solid ${s.color}22` }}>
+                        {date2 && (
+                          <div style={{ fontSize: 11, color: s.color, opacity: 0.85 }}>
+                            {format(date2, "EEEE, d MMMM", { locale: he })}
+                          </div>
+                        )}
+                        {selected.teacherName && (
+                          <div style={{ fontSize: 11, color: 'var(--fd-faint)', marginTop: 2 }}>
+                            {selected.teacherName}
+                          </div>
+                        )}
+                        {selected.justified === 1 && (
+                          <div style={{ fontSize: 11, color: 'var(--fd-sage)', fontWeight: 600, marginTop: 2 }}>מוצדק</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Modal */}
-      {open && (
+      {/* Full list modal */}
+      {showAll && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
-          onClick={() => setOpen(false)}>
+          onClick={() => setShowAll(false)}>
           <div style={{ background: 'var(--fd-card)', borderRadius: 24, width: '100%', maxWidth: 360, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--fd-divider)' }}>
               <span style={{ fontWeight: 700, color: 'var(--fd-ink)' }}>נוכחות · כל האירועים ({events.length})</span>
-              <button onClick={() => setOpen(false)}
+              <button onClick={() => setShowAll(false)}
                 style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fd-divider)', border: 'none', cursor: 'pointer', color: 'var(--fd-muted)', fontSize: 14 }}>✕</button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>

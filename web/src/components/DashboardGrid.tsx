@@ -47,20 +47,20 @@ export function DashboardGrid() {
 
       {/* ── Desktop layout ── */}
       <div className="hidden lg:flex lg:flex-col" style={{
-        height: '100vh', padding: 28, gap: 18, boxSizing: 'border-box',
+        height: '100vh', padding: 20, gap: 14, boxSizing: 'border-box',
         background: 'var(--fd-bg)',
       }}>
         <HeaderStrip />
 
         {/* Row 1: Calendar + Weather + Tasks */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1.1fr', gap: 16, height: 290, flexShrink: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1.1fr', gap: 14, height: 248, flexShrink: 0 }}>
           <CalendarTile />
           <WeatherTile />
           <TasksTile mode="today" />
         </div>
 
         {/* Row 2: Events + SchoolTomorrow + Behavior */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.4fr 0.95fr', gap: 16, height: 290, flexShrink: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.4fr 0.95fr', gap: 14, height: 248, flexShrink: 0 }}>
           <EventsBoardTile />
           <SchoolTomorrowTile />
           <BehaviorTile />
