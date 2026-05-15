@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { where } from "firebase/firestore";
-import { format, isToday, isYesterday } from "date-fns";
+import { where, doc, updateDoc, Timestamp } from "firebase/firestore";
+import { format, isToday, isYesterday, addDays, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 import { CardHead } from "../components/CardHead";
+import { db } from "../firebase";
 
 interface BehaviorEvent {
   id: string;
@@ -11,7 +12,17 @@ interface BehaviorEvent {
   categoryName: string;
   justified: number;
   teacherName: string;
-  eventDate: import("firebase/firestore").Timestamp;
+  eventDate: Timestamp;
+}
+
+interface SchoolUpdate {
+  id: string;
+  type: string;
+  subject: string;
+  title: string;
+  body: string;
+  eventDate: Timestamp;
+  read: boolean;
 }
 
 const EVENT_STYLE: Record<number, { label: string; color: string; bg: string }> = {
@@ -32,90 +43,86 @@ function dayLabel(date: Date) {
 }
 
 export function BehaviorTile() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showAll, setShowAll]       = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
     "schoolUpdates", [where("type", "==", "behavior")]
   );
   const events = [...rawEvents].sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
-  const recent = events.slice(0, 5);
+  const recent = events.slice(0, 2);
 
-  const selected = selectedId ? events.find(e => e.id === selectedId) ?? null : null;
+  const sevenAhead = startOfDay(addDays(new Date(), 7));
+  const { data: hwRaw } = useRealtimeCollection<SchoolUpdate>(
+    "schoolUpdates", [where("type", "==", "homework")]
+  );
+  const homework = hwRaw
+    .filter(u => !u.read && isBefore(u.eventDate.toDate(), sevenAhead))
+    .sort((a, b) => a.eventDate.toMillis() - b.eventDate.toMillis());
+
+  async function toggleHw(id: string, current: boolean) {
+    await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
+  }
 
   return (
     <>
-      <div className="tile flex flex-col" style={{ height: '100%', position: 'relative' }}>
-        <CardHead
-          he="נוכחות · אביב"
-          en="ATTENDANCE"
-          right={events.length > 0 ? (
+      <div className="tile flex flex-col" style={{ height: '100%' }}>
+        <CardHead he="אביב · נוכחות" en="ATTENDANCE" right={
+          events.length > 0 ? (
             <button onClick={() => setShowAll(true)}
               style={{ fontSize: 11, color: 'var(--fd-terra)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               הכל ({events.length})
             </button>
-          ) : undefined}
-        />
+          ) : undefined
+        } />
 
-        {events.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <div style={{ fontSize: 28 }}>✅</div>
-            <div style={{ fontSize: 12, color: 'var(--fd-faint)' }}>הכל תקין</div>
-          </div>
-        ) : (
-          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {recent.map(ev => {
-              const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
-              const date = ev.eventDate?.toDate?.();
-              const isSelected = ev.id === selectedId;
-              return (
-                <div key={ev.id}>
-                  <div
-                    onClick={() => setSelectedId(isSelected ? null : ev.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '7px 10px', borderRadius: isSelected ? '10px 10px 0 0' : 10,
-                      cursor: 'pointer', background: s.bg,
-                    }}>
-                    <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: s.color }}>
-                      {ev.categoryName || s.label}
-                    </div>
-                    {ev.justified === 1 && (
-                      <span style={{ fontSize: 11, color: 'var(--fd-sage)', fontWeight: 600 }}>✓</span>
-                    )}
-                    <span style={{ fontSize: 11, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)' }}>
-                      {date ? dayLabel(date) : ''}
-                    </span>
-                  </div>
+        {/* Behavior — max 2 rows */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+          {events.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--fd-faint)', textAlign: 'center', padding: '4px 0' }}>✅ הכל תקין</div>
+          ) : recent.map(ev => {
+            const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
+            const date = ev.eventDate?.toDate?.();
+            return (
+              <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, background: s.bg }}>
+                <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: s.color }}>{ev.categoryName || s.label}</div>
+                {ev.justified === 1 && <span style={{ fontSize: 10, color: 'var(--fd-sage)', fontWeight: 600 }}>✓</span>}
+                <span style={{ fontSize: 10, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)' }}>
+                  {date ? dayLabel(date) : ''}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
-                  {isSelected && selected && (() => {
-                    const date2 = selected.eventDate?.toDate?.();
-                    return (
-                      <div style={{ background: s.bg, borderRadius: '0 0 10px 10px', padding: '6px 10px 8px', borderTop: `1px solid ${s.color}22` }}>
-                        {date2 && (
-                          <div style={{ fontSize: 11, color: s.color, opacity: 0.85 }}>
-                            {format(date2, "EEEE, d MMMM", { locale: he })}
-                          </div>
-                        )}
-                        {selected.teacherName && (
-                          <div style={{ fontSize: 11, color: 'var(--fd-faint)', marginTop: 2 }}>
-                            {selected.teacherName}
-                          </div>
-                        )}
-                        {selected.justified === 1 && (
-                          <div style={{ fontSize: 11, color: 'var(--fd-sage)', fontWeight: 600, marginTop: 2 }}>מוצדק</div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* Divider */}
+        <div style={{ height: 1, background: 'var(--fd-divider)', marginBottom: 10 }} />
+
+        {/* Homework */}
+        <div style={{ fontSize: 10, color: 'var(--fd-faint)', letterSpacing: '0.12em', fontWeight: 600, marginBottom: 6 }}>שיעורי בית</div>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {homework.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--fd-faint)' }}>
+              אין שיעורי בית פתוחים
+            </div>
+          ) : homework.map(hw => (
+            <div key={hw.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, background: 'var(--fd-task-warm)', border: '1px solid var(--fd-honey-soft)' }}>
+              <button onClick={() => toggleHw(hw.id, hw.read)}
+                style={{ width: 18, height: 18, borderRadius: 6, border: '1.5px solid var(--fd-faint)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {hw.read ? <span style={{ color: 'var(--fd-sage)', fontSize: 11 }}>✓</span> : null}
+              </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--fd-ink)' }}>{hw.subject}</div>
+                {hw.body && <div style={{ fontSize: 11, color: 'var(--fd-muted)', marginTop: 1 }}>{hw.body}</div>}
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)', flexShrink: 0 }}>
+                {format(hw.eventDate.toDate(), "d/M", { locale: he })}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Full list modal */}
+      {/* Full behavior modal */}
       {showAll && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
           onClick={() => setShowAll(false)}>
