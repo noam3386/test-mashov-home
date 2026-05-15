@@ -4,6 +4,7 @@ import { db } from "../firebase";
 import { ClockTile } from "../tiles/ClockTile";
 import { CalendarTile } from "../tiles/CalendarTile";
 import { TasksTile } from "../tiles/TasksTile";
+import { EventsBoardTile } from "../tiles/EventsBoardTile";
 import { BehaviorTile } from "../tiles/BehaviorTile";
 import { SchoolTomorrowTile } from "../tiles/SchoolTomorrowTile";
 import { ChuggimTile } from "../tiles/ChuggimTile";
@@ -31,7 +32,7 @@ function SyncBadge() {
 
   return (
     <div className="text-center text-gray-300 text-xs mt-2 flex items-center justify-center gap-3">
-      <span>v1.5</span>
+      <span>v1.6</span>
       <span className="flex items-center gap-1">
         <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
         {label}
@@ -53,7 +54,7 @@ export function DashboardGrid() {
         <div className="col-span-3 row-span-3"><BehaviorTile /></div>
         <div className="col-span-3 row-span-3"><TasksTile mode="today" /></div>
         <div className="col-span-3 row-span-3"><SchoolTomorrowTile /></div>
-        <div className="col-span-3 row-span-3"><TasksTile mode="week" /></div>
+        <div className="col-span-3 row-span-3"><EventsBoardTile /></div>
 
         <div className="col-span-12 row-span-3"><ChuggimTile /></div>
       </div>
@@ -70,7 +71,7 @@ export function DashboardGrid() {
         </div>
         <CalendarTile />
         <SchoolTomorrowTile />
-        <TasksTile mode="week" />
+        <EventsBoardTile />
         <ChuggimTile />
       </div>
 
