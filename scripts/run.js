@@ -277,6 +277,11 @@ log("🚀", "Family Dashboard Sync — מתחיל");
 await syncCalendar();
 await syncMashov();
 
+// Always stamp the last sync time so the dashboard badge stays fresh
+await db.collection("config").doc("mashov").update({
+  lastSyncAt: FieldValue.serverTimestamp(),
+}).catch(() => {});
+
 // In CI (GitHub Actions) — exit after one run
 if (process.env.CI) {
   log("✅", "סנכרון הסתיים — יוצא");
