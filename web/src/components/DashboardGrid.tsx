@@ -11,33 +11,48 @@ import { ChuggimTile } from "../tiles/ChuggimTile";
 import { WeatherTile } from "../tiles/WeatherTile";
 import { EventsBoardTile } from "../tiles/EventsBoardTile";
 
+interface CalendarSyncState { status?: string; error?: string; events?: number; serviceAccount?: string; }
+
 function useLastSync() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [calSync, setCalSync]   = useState<CalendarSyncState>({});
   useEffect(() => {
-    return onSnapshot(doc(db, "config", "mashov"), (snap) => {
+    const u1 = onSnapshot(doc(db, "config", "mashov"), (snap) => {
       const ts = snap.data()?.lastSyncAt as Timestamp | undefined;
       if (ts) setLastSync(ts.toDate());
     });
+    const u2 = onSnapshot(doc(db, "config", "calendarSync"), (snap) => {
+      if (snap.exists()) setCalSync(snap.data() as CalendarSyncState);
+    });
+    return () => { u1(); u2(); };
   }, []);
-  return lastSync;
+  return { lastSync, calSync };
 }
 
 function SyncBadge() {
-  const lastSync = useLastSync();
+  const { lastSync, calSync } = useLastSync();
   const label = lastSync
     ? `עודכן ${lastSync.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} — ${lastSync.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}`
     : "טוען...";
+  const calOk = calSync.status === "ok";
+  const calErr = calSync.status === "error";
   return (
-    <div style={{
-      textAlign: 'center', color: 'var(--fd-faint)', fontSize: 11,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      gap: 12, paddingBlock: 4, flexShrink: 0,
-    }}>
+    <div style={{ color: 'var(--fd-faint)', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, paddingBlock: 4, flexShrink: 0, flexWrap: 'wrap' }}>
       <span style={{ opacity: 0.5 }}>v2.2</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--fd-sage)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
         {label}
       </span>
+      {calErr && (
+        <span style={{ color: 'var(--fd-terra)', fontWeight: 600 }} title={`${calSync.error}\nשתף עם: ${calSync.serviceAccount}`}>
+          📅 יומן: שגיאה — {calSync.error?.slice(0, 50)}
+        </span>
+      )}
+      {calOk && calSync.events === 0 && (
+        <span style={{ color: 'var(--fd-honey)' }} title={`שתף יומן עם: ${calSync.serviceAccount}`}>
+          📅 יומן: 0 אירועים — בדוק שיתוף
+        </span>
+      )}
     </div>
   );
 }

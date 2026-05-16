@@ -62,10 +62,11 @@ function log(emoji, msg) {
 // ─── Google Calendar Sync ─────────────────────────────────────────────────────
 
 async function syncCalendar() {
-  log("📅", `מסנכרן ${CALENDARS.length} יומנים...`);
+  const sa = JSON.parse(readFileSync(saPath, "utf8"));
+  log("📅", `יומן — service account: ${sa.client_email}`);
   try {
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(readFileSync(saPath, "utf8")),
+      credentials: sa,
       scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
     });
     const calendar = google.calendar({ version: "v3", auth });
@@ -78,6 +79,7 @@ async function syncCalendar() {
     const batch = db.batch();
 
     for (const cal of CALENDARS) {
+      log("📅", `שולף יומן ${cal.id}...`);
       const res = await calendar.events.list({
         calendarId: cal.id,
         timeMin, timeMax,
@@ -88,6 +90,7 @@ async function syncCalendar() {
 
       const events = res.data.items ?? [];
       totalEvents += events.length;
+      log("📅", `  → ${events.length} אירועים`);
 
       for (const ev of events) {
         if (!ev.id) continue;
@@ -109,8 +112,19 @@ async function syncCalendar() {
 
     await batch.commit();
     log("✅", `יומן: ${totalEvents} אירועים עודכנו`);
+    await db.collection("config").doc("calendarSync").set({
+      status: "ok", events: totalEvents, syncedAt: FieldValue.serverTimestamp(),
+      serviceAccount: sa.client_email,
+    });
   } catch (err) {
-    log("❌", `יומן נכשל: ${err.message}`);
+    const msg = err?.response?.data?.error?.message ?? err.message;
+    const status = err?.response?.status ?? null;
+    log("❌", `יומן נכשל (${status}): ${msg}`);
+    await db.collection("config").doc("calendarSync").set({
+      status: "error", error: msg, httpStatus: status,
+      syncedAt: FieldValue.serverTimestamp(),
+      serviceAccount: JSON.parse(readFileSync(saPath, "utf8")).client_email,
+    }).catch(() => {});
   }
 }
 
