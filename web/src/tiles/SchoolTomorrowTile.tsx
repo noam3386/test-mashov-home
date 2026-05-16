@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { where, Timestamp } from "firebase/firestore";
-import { addDays, format, isBefore, startOfDay } from "date-fns";
+import { addDays, subDays, format, isAfter, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
 import { useHomeworkDone } from "../hooks/useHomeworkDone";
@@ -45,11 +45,15 @@ export function SchoolTomorrowTile() {
     "schoolUpdates", [where("type", "in", ["homework", "hatamot"])]
   );
 
+  const oneWeekAgo = startOfDay(subDays(new Date(), 7));
   const sevenAhead = startOfDay(addDays(new Date(), 7));
   const { doneIds, toggle: toggleHw } = useHomeworkDone();
 
   const pendingHw = schoolUpdates.filter(u =>
-    u.type === "homework" && !doneIds.has(u.id) && isBefore(u.eventDate.toDate(), sevenAhead)
+    u.type === "homework" &&
+    !doneIds.has(u.id) &&
+    isAfter(u.eventDate.toDate(), oneWeekAgo) &&
+    isBefore(u.eventDate.toDate(), sevenAhead)
   );
 
   const hwBySubject = new Map<string, SchoolUpdate>();
