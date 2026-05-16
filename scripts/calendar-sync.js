@@ -67,7 +67,7 @@ async function syncCalendar() {
       if (component.type !== "VEVENT") continue;
 
       if (component.rrule) {
-        const occurrences = ical.expandRecurringEvent(component, timeMin, timeMax);
+        const occurrences = ical.expandRecurringEvent(component, { from: timeMin, to: timeMax });
         for (const { start, end } of occurrences) {
           pushWrite(allWrites, cal, component, start, end ?? start);
         }
