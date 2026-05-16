@@ -5,6 +5,7 @@ import { HeaderStrip } from "./HeaderStrip";
 import { CalendarTile } from "../tiles/CalendarTile";
 import { TasksTile } from "../tiles/TasksTile";
 import { BehaviorTile } from "../tiles/BehaviorTile";
+import { HomeworkTile } from "../tiles/HomeworkTile";
 import { SchoolTomorrowTile } from "../tiles/SchoolTomorrowTile";
 import { ChuggimTile } from "../tiles/ChuggimTile";
 import { WeatherTile } from "../tiles/WeatherTile";
@@ -32,7 +33,7 @@ function SyncBadge() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       gap: 12, paddingBlock: 4, flexShrink: 0,
     }}>
-      <span style={{ opacity: 0.5 }}>v2.1</span>
+      <span style={{ opacity: 0.5 }}>v2.2</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--fd-sage)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
         {label}
@@ -59,15 +60,16 @@ export function DashboardGrid() {
           <TasksTile mode="today" />
         </div>
 
-        {/* Row 2: Events + SchoolTomorrow + Behavior */}
+        {/* Row 2: Events + SchoolTomorrow + Homework */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.4fr 0.95fr', gap: 14, height: 248, flexShrink: 0 }}>
           <EventsBoardTile />
           <SchoolTomorrowTile />
-          <BehaviorTile />
+          <HomeworkTile />
         </div>
 
-        {/* Row 3: Chuggim */}
-        <div style={{ flex: 1, minHeight: 0 }}>
+        {/* Row 3: Attendance (narrow) + Chuggim (wide) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '0.6fr 2.4fr', gap: 14, flex: 1, minHeight: 0 }}>
+          <BehaviorTile />
           <ChuggimTile />
         </div>
 
@@ -84,6 +86,7 @@ export function DashboardGrid() {
         </div>
         <EventsBoardTile />
         <SchoolTomorrowTile />
+        <HomeworkTile />
         <BehaviorTile />
         <ChuggimTile />
         <SyncBadge />

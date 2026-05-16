@@ -1,8 +1,8 @@
-import { where, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { where, Timestamp } from "firebase/firestore";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
-import { db } from "../firebase";
+import { useHomeworkDone } from "../hooks/useHomeworkDone";
 import { CardHead } from "../components/CardHead";
 import { Avatar } from "../components/Avatar";
 import { memberOf } from "../family";
@@ -43,8 +43,10 @@ export function SchoolTomorrowTile() {
   );
 
   const sevenAhead = startOfDay(addDays(new Date(), 7));
-  const pendingHw  = schoolUpdates.filter(u =>
-    u.type === "homework" && !u.read && isBefore(u.eventDate.toDate(), sevenAhead)
+  const { doneIds, toggle: toggleHw } = useHomeworkDone();
+
+  const pendingHw = schoolUpdates.filter(u =>
+    u.type === "homework" && !doneIds.has(u.id) && isBefore(u.eventDate.toDate(), sevenAhead)
   );
 
   const hwBySubject = new Map<string, SchoolUpdate>();
@@ -60,12 +62,6 @@ export function SchoolTomorrowTile() {
   }
 
   const hatamot = schoolUpdates.filter(u => u.type === "hatamot");
-
-  async function toggleHw(id: string, current: boolean) {
-    try {
-      await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
-    } catch (e) { console.error("toggleHw failed", e); }
-  }
 
   const loading = ttLoading || suLoading;
   const aviv    = memberOf('aviv');
@@ -100,9 +96,9 @@ export function SchoolTomorrowTile() {
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--fd-ink)' }}>{hw.subject}</div>
                     {hw.body && <div style={{ fontSize: 11.5, color: 'var(--fd-muted)', marginTop: 1 }}>{hw.body}</div>}
                   </div>
-                  <button onClick={() => toggleHw(hw.id, hw.read)}
+                  <button onClick={() => toggleHw(hw.id)}
                     style={{ width: 18, height: 18, borderRadius: 6, border: '1.5px solid var(--fd-faint)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {hw.read ? <span style={{ color: 'var(--fd-sage)', fontSize: 12 }}>✓</span> : null}
+                    {doneIds.has(hw.id) ? <span style={{ color: 'var(--fd-sage)', fontSize: 12 }}>✓</span> : null}
                   </button>
                 </div>
               ))}
@@ -144,12 +140,12 @@ export function SchoolTomorrowTile() {
                 {/* Homework chip or done toggle */}
                 {hw ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => toggleHw(hw.id, hw.read)}
+                    <button onClick={() => toggleHw(hw.id)}
                       style={{
                         width: 18, height: 18, borderRadius: 6, border: `1.5px solid var(--fd-faint)`,
                         background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                      {hw.read ? <span style={{ color: 'var(--fd-sage)', fontSize: 12 }}>✓</span> : null}
+                      {doneIds.has(hw.id) ? <span style={{ color: 'var(--fd-sage)', fontSize: 12 }}>✓</span> : null}
                     </button>
                     <span style={{ background: 'var(--fd-terra-soft)', color: 'var(--fd-terra)', fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 6 }}>
                       שיעורי בית
