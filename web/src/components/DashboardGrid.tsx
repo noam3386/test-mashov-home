@@ -47,7 +47,7 @@ export function DashboardGrid() {
         <div className="flex-1 min-h-0 grid grid-cols-12 grid-rows-8 gap-3">
           <div className="col-span-3 row-span-2"><ClockTile /></div>
           <div className="col-span-3 row-span-2"><WeatherTile /></div>
-          <div className="col-span-6 row-span-3"><CalendarTile /></div>
+          <div className="col-span-6 row-span-5"><CalendarTile /></div>
 
           <div className="col-span-3 row-span-3"><BehaviorTile /></div>
           <div className="col-span-3 row-span-3"><TasksTile mode="today" /></div>
