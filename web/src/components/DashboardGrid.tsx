@@ -69,7 +69,7 @@ export function DashboardGrid() {
         <HeaderStrip />
 
         {/* Row 1: Calendar + Weather + Tasks */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1.1fr', gap: 14, height: 248, flexShrink: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr 1.1fr', gap: 14, height: 320, flexShrink: 0 }}>
           <CalendarTile />
           <WeatherTile />
           <TasksTile mode="today" />
