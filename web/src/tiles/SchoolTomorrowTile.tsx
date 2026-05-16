@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { where, Timestamp } from "firebase/firestore";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
@@ -29,12 +30,14 @@ interface SchoolUpdate {
 const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
 export function SchoolTomorrowTile() {
-  const tomorrow       = addDays(new Date(), 1);
-  const tomorrowDayNum = tomorrow.getDay();
-  const isSchoolDay    = tomorrowDayNum >= 0 && tomorrowDayNum <= 4;
+  const [offset, setOffset] = useState(1); // 0 = היום, 1 = מחר
+
+  const targetDate   = addDays(new Date(), offset);
+  const targetDayNum = targetDate.getDay();
+  const isSchoolDay  = targetDayNum >= 0 && targetDayNum <= 4;
 
   const { data: timetableRaw, loading: ttLoading } = useRealtimeCollection<TimetableEntry>(
-    "timetable", [where("day", "==", tomorrowDayNum)]
+    "timetable", [where("day", "==", targetDayNum)]
   );
   const timetable = [...timetableRaw].sort((a, b) => a.lesson - b.lesson);
 
@@ -63,19 +66,38 @@ export function SchoolTomorrowTile() {
 
   const hatamot = schoolUpdates.filter(u => u.type === "hatamot");
 
-  const loading = ttLoading || suLoading;
-  const aviv    = memberOf('aviv');
-  const tomorrowLabel = `יום ${DAY_NAMES[tomorrowDayNum]} · ${format(tomorrow, "d בMMMM", { locale: he })}`;
+  const loading  = ttLoading || suLoading;
+  const aviv     = memberOf('aviv');
+  const dayLabel = `יום ${DAY_NAMES[targetDayNum]} · ${format(targetDate, "d בMMMM", { locale: he })}`;
+  const enLabel  = offset === 0 ? "TODAY · AVIV" : "TOMORROW · AVIV";
 
   return (
     <div className="tile flex flex-col" style={{ height: '100%' }}>
       <CardHead
-        he={`מחר בבית הספר · אביב`}
-        en={`TOMORROW · AVIV`}
+        he={`בית הספר · אביב`}
+        en={enLabel}
         right={aviv ? <Avatar member={aviv} size={32} /> : undefined}
       />
-      <div style={{ fontSize: 12, color: 'var(--fd-muted)', marginBottom: 12, fontWeight: 500 }}>
-        {tomorrowLabel}
+
+      {/* Date row with today/tomorrow nav */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: 'var(--fd-muted)', fontWeight: 500 }}>{dayLabel}</div>
+        <div style={{ display: 'flex', gap: 2 }}>
+          <button
+            onClick={() => setOffset(0)}
+            style={{
+              fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: offset === 0 ? 'var(--fd-terra)' : 'var(--fd-divider)',
+              color:      offset === 0 ? '#fff'            : 'var(--fd-muted)',
+            }}>היום</button>
+          <button
+            onClick={() => setOffset(1)}
+            style={{
+              fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: offset === 1 ? 'var(--fd-terra)' : 'var(--fd-divider)',
+              color:      offset === 1 ? '#fff'            : 'var(--fd-muted)',
+            }}>מחר</button>
+        </div>
       </div>
 
       {loading ? <Skeleton /> : (

@@ -125,7 +125,7 @@ export function CalendarTile() {
                     background: today ? 'var(--fd-terra-soft)' : 'transparent',
                     border: today ? '1px solid var(--fd-terra)' : '1px solid transparent',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                    minHeight: 44, cursor: clickable ? 'pointer' : 'default',
+                    minHeight: 32, cursor: clickable ? 'pointer' : 'default',
                   }}>
                   <div style={{
                     fontSize: 13, fontWeight: today ? 700 : 500, lineHeight: 1,
