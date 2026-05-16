@@ -37,8 +37,9 @@ jobs:
       - name: Deploy Firestore rules
         continue-on-error: true
         run: |
-          cd scripts && npm ci --silent
-          FIREBASE_SERVICE_ACCOUNT='${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' node deploy-rules.mjs
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules --project family-organizer-9b56c --non-interactive
+          rm /tmp/sa.json
 
       - name: Install functions dependencies
         continue-on-error: true
