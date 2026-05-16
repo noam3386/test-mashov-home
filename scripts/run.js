@@ -278,9 +278,9 @@ await syncCalendar();
 await syncMashov();
 
 // Always stamp the last sync time so the dashboard badge stays fresh
-await db.collection("config").doc("mashov").update({
+await db.collection("config").doc("mashov").set({
   lastSyncAt: FieldValue.serverTimestamp(),
-}).catch(() => {});
+}, { merge: true }).catch((e) => log("⚠️", `lastSyncAt write failed: ${e.message}`));
 
 // In CI (GitHub Actions) — exit after one run
 if (process.env.CI) {

@@ -45,6 +45,7 @@ function dayLabel(date: Date) {
 export function BehaviorTile() {
   const [showAll,    setShowAll]    = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
     "schoolUpdates", [where("type", "==", "behavior")]
@@ -70,9 +71,14 @@ export function BehaviorTile() {
     .slice(0, 20);
 
   async function toggleHw(id: string, current: boolean) {
+    setSaveError(false);
     try {
       await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
-    } catch (e) { console.error("toggleHw failed", e); }
+    } catch (e) {
+      console.error("toggleHw failed", e);
+      setSaveError(true);
+      setTimeout(() => setSaveError(false), 4000);
+    }
   }
 
   return (
@@ -108,6 +114,12 @@ export function BehaviorTile() {
 
         {/* Divider */}
         <div style={{ height: 1, background: 'var(--fd-divider)', marginBottom: 10 }} />
+
+        {saveError && (
+          <div style={{ fontSize: 11, color: 'var(--fd-terra)', background: 'var(--fd-terra-soft)', borderRadius: 8, padding: '4px 10px', marginBottom: 6, textAlign: 'center' }}>
+            ⚠️ שמירה נכשלה — כללי האבטחה לא עודכנו עדיין
+          </div>
+        )}
 
         {/* Homework header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
