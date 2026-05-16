@@ -38,7 +38,7 @@ function SyncBadge() {
   const calErr = calSync.status === "error";
   return (
     <div style={{ color: 'var(--fd-faint)', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, paddingBlock: 4, flexShrink: 0, flexWrap: 'wrap' }}>
-      <span style={{ opacity: 0.5 }}>v2.2</span>
+      <span style={{ opacity: 0.5 }}>v2.3</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--fd-sage)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
         {label}
