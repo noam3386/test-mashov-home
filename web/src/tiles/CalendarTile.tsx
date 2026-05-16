@@ -95,12 +95,12 @@ export function CalendarTile() {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => setViewMonth(m => addMonths(m, 1))}
-          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">‹</button>
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">›</button>
         <span className="font-bold text-gray-700 text-sm">
           {format(viewMonth, "MMMM yyyy", { locale: he })}
         </span>
         <button onClick={() => setViewMonth(m => addMonths(m, -1))}
-          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">›</button>
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">‹</button>
       </div>
 
       {/* Day name row */}
