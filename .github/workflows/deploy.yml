@@ -20,17 +20,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
-      - name: Install dependencies
+      - name: Install web dependencies
         run: cd web && npm ci
 
-      - name: Build
+      - name: Build web
         run: cd web && npm run build
-
-      - name: Install functions dependencies
-        run: cd functions && npm ci
-
-      - name: Build functions
-        run: cd functions && npm run build
 
       - name: Deploy Firestore rules
         run: |
@@ -45,6 +39,14 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: family-organizer-9b56c
           channelId: live
+
+      - name: Install functions dependencies
+        continue-on-error: true
+        run: cd functions && npm ci
+
+      - name: Build functions
+        continue-on-error: true
+        run: cd functions && npm run build
 
       - name: Deploy Functions (requires Blaze plan)
         continue-on-error: true
