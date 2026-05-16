@@ -32,10 +32,10 @@ jobs:
       - name: Build functions
         run: cd functions && npm run build
 
-      - name: Deploy Firestore rules + Functions
+      - name: Deploy Firestore rules
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
-          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules,functions --project family-organizer-9b56c --non-interactive
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules --project family-organizer-9b56c --non-interactive
           rm /tmp/sa.json
 
       - name: Deploy to Firebase Hosting
@@ -45,3 +45,10 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: family-organizer-9b56c
           channelId: live
+
+      - name: Deploy Functions (requires Blaze plan)
+        continue-on-error: true
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only functions --project family-organizer-9b56c --non-interactive
+          rm /tmp/sa.json
