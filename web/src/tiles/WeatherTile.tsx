@@ -57,34 +57,34 @@ export function WeatherTile() {
       {loading ? <Skeleton /> : weather && (
         <>
           {/* Hero row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 18, flex: '0 0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 10, flex: '0 0 auto' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{ fontSize: 56, fontWeight: 500, color: 'var(--fd-ink)', letterSpacing: '-0.04em', lineHeight: 1, fontFamily: 'var(--fd-font-sans)' }}>
+                <span style={{ fontSize: 48, fontWeight: 500, color: 'var(--fd-ink)', letterSpacing: '-0.04em', lineHeight: 1, fontFamily: 'var(--fd-font-sans)' }}>
                   {weather.temp}
                 </span>
-                <span style={{ fontSize: 24, color: 'var(--fd-muted)', fontWeight: 500 }}>°</span>
+                <span style={{ fontSize: 20, color: 'var(--fd-muted)', fontWeight: 500 }}>°</span>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--fd-muted)', fontWeight: 500, marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: 'var(--fd-muted)', fontWeight: 500, marginTop: 2 }}>
                 {weatherLabel(weather.code)} · מרגיש כמו {weather.feelsLike}°
               </div>
             </div>
-            <WeatherGlyph kind={weatherKind(weather.code)} size={68} color="var(--fd-sage)" accent="var(--fd-terra)" />
+            <WeatherGlyph kind={weatherKind(weather.code)} size={58} color="var(--fd-sage)" accent="var(--fd-terra)" />
           </div>
 
           {/* 5-day forecast */}
           <div style={{
             display: 'flex', justifyContent: 'space-between', gap: 4,
-            paddingTop: 14, borderTop: '1px solid var(--fd-divider)',
+            paddingTop: 10, borderTop: '1px solid var(--fd-divider)',
             flex: 1,
           }}>
             {weather.forecast.map((f, i) => (
               <div key={i} style={{ textAlign: 'center', flex: 1 }}>
-                <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 6 }}>{f.day}</div>
+                <div style={{ fontSize: 10, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 4 }}>{f.day}</div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <WeatherGlyph kind={weatherKind(f.code)} size={22} color="var(--fd-muted)" accent="var(--fd-terra)" />
+                  <WeatherGlyph kind={weatherKind(f.code)} size={20} color="var(--fd-muted)" accent="var(--fd-terra)" />
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--fd-muted)', marginTop: 4, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: 11, color: 'var(--fd-muted)', marginTop: 3, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                   {f.hi}° <span style={{ color: 'var(--fd-faint)' }}>{f.lo}°</span>
                 </div>
               </div>
