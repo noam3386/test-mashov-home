@@ -48,7 +48,16 @@ export function SchoolTomorrowTile() {
   );
 
   const hwBySubject = new Map<string, SchoolUpdate>();
-  for (const hw of pendingHw) hwBySubject.set(hw.subject?.trim().toLowerCase(), hw);
+  for (const hw of pendingHw) hwBySubject.set(hw.subject?.trim().toLowerCase() ?? '', hw);
+
+  function findHw(subjectName: string): SchoolUpdate | undefined {
+    const key = subjectName?.trim().toLowerCase() ?? '';
+    if (hwBySubject.has(key)) return hwBySubject.get(key);
+    for (const [k, hw] of hwBySubject) {
+      if (key.startsWith(k) || k.startsWith(key)) return hw;
+    }
+    return undefined;
+  }
 
   const hatamot = schoolUpdates.filter(u => u.type === "hatamot");
 
@@ -101,7 +110,7 @@ export function SchoolTomorrowTile() {
           )}
 
           {isSchoolDay && timetable.map(entry => {
-            const hw = hwBySubject.get(entry.subjectName?.trim().toLowerCase());
+            const hw = findHw(entry.subjectName);
             return (
               <div key={entry.id}
                 style={{

@@ -39,9 +39,9 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // config — רק Admin SDK
+    // config — read is public (dashboard badge), writes only via Admin SDK
     match /config/{configId} {
-      allow read: if isParent();
+      allow read: if true;
       allow write: if false;
     }
   }
