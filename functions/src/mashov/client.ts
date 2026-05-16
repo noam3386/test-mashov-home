@@ -1,7 +1,10 @@
 import axios from "axios";
 import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
-import { MashovGrade, MashovMessage, MashovBehavior, MashovSession } from "./types";
+import {
+  MashovGrade, MashovMessage, MashovBehavior,
+  MashovHomework, MashovHatamot, MashovTimetableEntry, MashovSession,
+} from "./types";
 
 const BASE_URL = "https://web.mashov.info/api";
 const USER_AGENT =
@@ -65,6 +68,30 @@ export async function fetchBehavior(session: MashovSession): Promise<MashovBehav
     { headers: buildHeaders(session) }
   );
   return response.data as MashovBehavior[];
+}
+
+export async function fetchHomework(session: MashovSession): Promise<MashovHomework[]> {
+  const response = await axios.get(
+    `${BASE_URL}/students/${session.studentId}/homework`,
+    { headers: buildHeaders(session) }
+  );
+  return response.data as MashovHomework[];
+}
+
+export async function fetchHatamot(session: MashovSession): Promise<MashovHatamot[]> {
+  const response = await axios.get(
+    `${BASE_URL}/students/${session.studentId}/hatamot`,
+    { headers: buildHeaders(session) }
+  );
+  return response.data as MashovHatamot[];
+}
+
+export async function fetchTimetable(session: MashovSession): Promise<MashovTimetableEntry[]> {
+  const response = await axios.get(
+    `${BASE_URL}/students/${session.studentId}/groups/all`,
+    { headers: buildHeaders(session) }
+  );
+  return response.data as MashovTimetableEntry[];
 }
 
 export async function mashovLogout(session: MashovSession): Promise<void> {
