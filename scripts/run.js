@@ -10,7 +10,7 @@
  * Mac auto-start:     see README below
  */
 
-import { google } from "googleapis";
+import ical from "node-ical";
 import axios from "axios";
 import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
@@ -24,22 +24,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
+// iCal URLs from Google Calendar → Settings → "Public address in iCal format"
 const CALENDARS = [
-  { id: "family13278164042447766357@group.calendar.google.com", memberIds: ["uid_aviv"] },
-  // { id: "SHISHIGAM_CALENDAR_ID@group.calendar.google.com",    memberIds: ["uid_aviv"] }, // ← שישיגם (להוסיף)
+  {
+    icalUrl: "https://calendar.google.com/calendar/ical/family13278164042447766357%40group.calendar.google.com/public/basic.ics",
+    memberIds: ["uid_aviv"],
+    defaultCategory: "family",
+  },
+  // {
+  //   icalUrl: "https://calendar.google.com/calendar/ical/SHISHIGAM_ID%40group.calendar.google.com/public/basic.ics",
+  //   memberIds: ["uid_aviv"],
+  //   defaultCategory: "chug",
+  // },
 ];
 const CALENDAR_SYNC_INTERVAL_MS  = 60  * 60 * 1000; // 60 דקות
 const MASHOV_SYNC_INTERVAL_MS    = 120 * 60 * 1000; // 120 דקות
 
 const MASHOV_BASE = "https://web.mashov.info/api";
 const USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-const CATEGORY_BY_COLOR = {
-  "1": "appointment", "2": "family",  "3": "family",
-  "4": "chug",        "5": "school",  "6": "chug",
-  "7": "school",      "8": "appointment", "9": "family",
-  "10": "school",     "11": "chug",
-};
 
 // ─── Init Firebase ────────────────────────────────────────────────────────────
 
@@ -59,59 +61,80 @@ function log(emoji, msg) {
   console.log(`[${new Date().toLocaleTimeString("he-IL")}] ${emoji}  ${msg}`);
 }
 
-// ─── Google Calendar Sync ─────────────────────────────────────────────────────
+// ─── Google Calendar Sync (iCal) ─────────────────────────────────────────────
+
+function guessCategory(title, defaultCategory) {
+  if (/חוג|שיעור\s/i.test(title)) return "chug";
+  if (/ביה["']?ס|בית.ספר/i.test(title)) return "school";
+  if (/פגישה|תור\b|doctor|דוקטור/i.test(title)) return "appointment";
+  return defaultCategory;
+}
 
 async function syncCalendar() {
   log("📅", `מסנכרן ${CALENDARS.length} יומנים...`);
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(readFileSync(saPath, "utf8")),
-      scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
-    });
-    const calendar = google.calendar({ version: "v3", auth });
+    const now    = new Date();
+    const timeMin = new Date(now.getTime() - 7  * 86400000);
+    const timeMax = new Date(now.getTime() + 30 * 86400000);
 
-    const now = new Date();
-    const timeMin = new Date(now.getTime() - 7  * 86400000).toISOString();
-    const timeMax = new Date(now.getTime() + 30 * 86400000).toISOString();
-
-    let totalEvents = 0;
-    const batch = db.batch();
+    const allWrites = [];
 
     for (const cal of CALENDARS) {
-      const res = await calendar.events.list({
-        calendarId: cal.id,
-        timeMin, timeMax,
-        singleEvents: true,
-        orderBy: "startTime",
-        maxResults: 250,
-      });
+      const res = await axios.get(cal.icalUrl, { timeout: 15000, responseType: "text" });
+      const components = ical.sync.parseICS(res.data);
 
-      const events = res.data.items ?? [];
-      totalEvents += events.length;
+      for (const component of Object.values(components)) {
+        if (component.type !== "VEVENT") continue;
 
-      for (const ev of events) {
-        if (!ev.id) continue;
-        const docId = "gcal_" + ev.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
-        const isAllDay = Boolean(ev.start?.date && !ev.start?.dateTime);
-        batch.set(db.collection("schedule").doc(docId), {
-          source:     "google_calendar",
-          externalId: ev.id,
-          title:     ev.summary ?? "(ללא כותרת)",
-          memberId:  cal.memberIds,
-          startTime: isAllDay ? new Date(ev.start.date + "T00:00:00") : new Date(ev.start.dateTime),
-          endTime:   isAllDay ? new Date(ev.end.date   + "T23:59:59") : new Date(ev.end.dateTime),
-          allDay:    isAllDay,
-          category:  CATEGORY_BY_COLOR[ev.colorId] ?? "family",
-          updatedAt: new Date(),
-        });
+        // Recurring events — expand occurrences in window
+        if (component.rrule) {
+          const occurrences = ical.expandRecurringEvent(component, timeMin, timeMax);
+          for (const { start, end } of occurrences) {
+            pushWrite(allWrites, cal, component, start, end ?? start);
+          }
+          continue;
+        }
+
+        const start = component.start ? new Date(component.start) : null;
+        const end   = component.end   ? new Date(component.end)   : start;
+        if (!start || start > timeMax || (end ?? start) < timeMin) continue;
+        pushWrite(allWrites, cal, component, start, end);
       }
     }
 
-    await batch.commit();
-    log("✅", `יומן: ${totalEvents} אירועים עודכנו`);
+    // Commit in chunks of 400 (Firestore batch limit = 500)
+    for (let i = 0; i < allWrites.length; i += 400) {
+      const batch = db.batch();
+      allWrites.slice(i, i + 400).forEach(({ ref, data }) => batch.set(ref, data));
+      await batch.commit();
+    }
+
+    log("✅", `יומן: ${allWrites.length} אירועים עודכנו`);
   } catch (err) {
     log("❌", `יומן נכשל: ${err.message}`);
   }
+}
+
+function pushWrite(allWrites, cal, component, start, end) {
+  const uid     = component.uid ?? `${start.toISOString()}`;
+  const isAllDay = component.datetype === "date";
+  const docId   = "gcal_" + uid.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_")
+                           + (component.rrule ? "_" + start.toISOString().slice(0, 10) : "");
+  const title   = component.summary ?? "(ללא כותרת)";
+  allWrites.push({
+    ref:  db.collection("schedule").doc(docId),
+    data: {
+      source:     "google_calendar",
+      externalId: uid,
+      title,
+      memberId:   cal.memberIds,
+      startTime:  start,
+      endTime:    end ?? start,
+      allDay:     isAllDay,
+      category:   guessCategory(title, cal.defaultCategory),
+      updatedAt:  new Date(),
+    },
+  });
 }
 
 // ─── Mashov Sync ─────────────────────────────────────────────────────────────

@@ -1,101 +1,93 @@
 /**
- * Google Calendar → Firestore sync
- * Run on home machine: node calendar-sync.js
- * Syncs events from the past week to 30 days ahead, every run.
+ * Google Calendar → Firestore sync via public iCal URL
+ * Run: node calendar-sync.js
+ *
+ * Get the iCal URL from Google Calendar:
+ *   Calendar Settings → "Public address in iCal format"
  */
 
-import { google } from "googleapis";
+import ical from "node-ical";
+import axios from "axios";
 import { db } from "./firebase-init.js";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const CALENDARS = [
+  {
+    icalUrl: "https://calendar.google.com/calendar/ical/family13278164042447766357%40group.calendar.google.com/public/basic.ics",
+    memberIds: ["uid_aviv"],
+    defaultCategory: "family",
+  },
+  // {
+  //   icalUrl: "https://calendar.google.com/calendar/ical/SHISHIGAM_ID%40group.calendar.google.com/public/basic.ics",
+  //   memberIds: ["uid_aviv"],
+  //   defaultCategory: "chug",
+  // },
+];
 
-const CALENDAR_ID = "family13278164042447766357@group.calendar.google.com";
+function guessCategory(title, defaultCategory) {
+  if (/חוג|שיעור\s/i.test(title)) return "chug";
+  if (/ביה["']?ס|בית.ספר/i.test(title)) return "school";
+  if (/פגישה|תור\b|doctor/i.test(title)) return "appointment";
+  return defaultCategory;
+}
 
-const MEMBER_IDS = ["uid_aviv"]; // ← הוסף UIDs של חברי משפחה נוספים לפי הצורך
-
-const CATEGORY_BY_COLOR = {
-  "1":  "appointment",
-  "2":  "family",
-  "3":  "family",
-  "4":  "chug",
-  "5":  "school",
-  "6":  "chug",
-  "7":  "school",
-  "8":  "appointment",
-  "9":  "family",
-  "10": "school",
-  "11": "chug",
-};
-
-function colorToCategory(colorId) {
-  return CATEGORY_BY_COLOR[colorId] ?? "family";
+function pushWrite(allWrites, cal, component, start, end) {
+  const uid     = component.uid ?? `${start.toISOString()}`;
+  const isAllDay = component.datetype === "date";
+  const docId   = "gcal_" + uid.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_")
+                           + (component.rrule ? "_" + start.toISOString().slice(0, 10) : "");
+  const title   = component.summary ?? "(ללא כותרת)";
+  allWrites.push({
+    ref:  db.collection("schedule").doc(docId),
+    data: {
+      source:     "google_calendar",
+      externalId: uid,
+      title,
+      memberId:   cal.memberIds,
+      startTime:  start,
+      endTime:    end ?? start,
+      allDay:     isAllDay,
+      category:   guessCategory(title, cal.defaultCategory),
+      updatedAt:  new Date(),
+    },
+  });
 }
 
 async function syncCalendar() {
-  const saPath = resolve(__dirname, "serviceAccount.json");
-  const sa = JSON.parse(readFileSync(saPath, "utf8"));
+  const now     = new Date();
+  const timeMin = new Date(now.getTime() - 7  * 86400000);
+  const timeMax = new Date(now.getTime() + 30 * 86400000);
+  const allWrites = [];
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: sa,
-    scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
-  });
+  for (const cal of CALENDARS) {
+    console.log(`📅 מושך יומן: ${cal.icalUrl}`);
+    const res = await axios.get(cal.icalUrl, { timeout: 15000, responseType: "text" });
+    const components = ical.sync.parseICS(res.data);
 
-  const calendar = google.calendar({ version: "v3", auth });
+    for (const component of Object.values(components)) {
+      if (component.type !== "VEVENT") continue;
 
-  const now = new Date();
-  const timeMin = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      if (component.rrule) {
+        const occurrences = ical.expandRecurringEvent(component, timeMin, timeMax);
+        for (const { start, end } of occurrences) {
+          pushWrite(allWrites, cal, component, start, end ?? start);
+        }
+        continue;
+      }
 
-  console.log("📅 מושך אירועים מ-Google Calendar...");
-
-  const res = await calendar.events.list({
-    calendarId: CALENDAR_ID,
-    timeMin,
-    timeMax,
-    singleEvents: true,
-    orderBy: "startTime",
-    maxResults: 250,
-  });
-
-  const events = res.data.items ?? [];
-  console.log(`   נמצאו ${events.length} אירועים`);
-
-  const batch = db.batch();
-  let count = 0;
-
-  for (const event of events) {
-    if (!event.id) continue;
-
-    const docId = "gcal_" + event.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const ref = db.collection("schedule").doc(docId);
-
-    const isAllDay = Boolean(event.start?.date && !event.start?.dateTime);
-    const startTime = isAllDay
-      ? new Date(event.start.date + "T00:00:00")
-      : new Date(event.start.dateTime);
-    const endTime = isAllDay
-      ? new Date(event.end.date + "T23:59:59")
-      : new Date(event.end.dateTime);
-
-    batch.set(ref, {
-      source: "google_calendar",
-      externalId: event.id,
-      title: event.summary ?? "(ללא כותרת)",
-      memberId: MEMBER_IDS,
-      startTime,
-      endTime,
-      allDay: isAllDay,
-      category: colorToCategory(event.colorId),
-      updatedAt: new Date(),
-    });
-    count++;
+      const start = component.start ? new Date(component.start) : null;
+      const end   = component.end   ? new Date(component.end)   : start;
+      if (!start || start > timeMax || (end ?? start) < timeMin) continue;
+      pushWrite(allWrites, cal, component, start, end);
+    }
   }
 
-  await batch.commit();
-  console.log(`✅ ${count} אירועים עודכנו ב-Firestore`);
+  for (let i = 0; i < allWrites.length; i += 400) {
+    const batch = db.batch();
+    allWrites.slice(i, i + 400).forEach(({ ref, data }) => batch.set(ref, data));
+    await batch.commit();
+  }
+
+  console.log(`✅ ${allWrites.length} אירועים עודכנו ב-Firestore`);
 }
 
 syncCalendar().catch((err) => {
