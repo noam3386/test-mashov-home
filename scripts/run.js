@@ -194,6 +194,7 @@ async function syncMashov() {
             memberId: student.memberId, type: "behavior",
             eventCode: b.eventCode ?? 0,
             categoryName: b.categoryName ?? b.eventType ?? "",
+            subjectName: b.subjectName ?? b.lessonSubjectName ?? b.groupName ?? "",
             justified: b.justified ?? -1,
             groupId: b.groupId ?? null,
             teacherName: b.reporterName ?? "",

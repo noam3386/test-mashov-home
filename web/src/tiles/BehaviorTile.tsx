@@ -8,6 +8,7 @@ interface BehaviorEvent {
   id: string;
   eventCode: number;
   categoryName: string;
+  subjectName: string;
   justified: number;
   teacherName: string;
   eventDate: Timestamp;
@@ -72,6 +73,12 @@ function EventDetailModal({ ev, onClose }: { ev: BehaviorEvent; onClose: () => v
               <span className="text-sm font-semibold text-red-500">✗ לא</span>
             )}
           </div>
+          {ev.subjectName && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">מקצוע</span>
+              <span className="text-sm font-medium text-gray-800">{ev.subjectName}</span>
+            </div>
+          )}
           {ev.teacherName && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-400">מורה</span>
