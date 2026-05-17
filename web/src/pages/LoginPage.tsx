@@ -35,6 +35,8 @@ export function LoginPage() {
           <p className="text-red-500 text-sm text-center mb-4">{error}</p>
         )}
 
+        <p className="text-xs text-gray-300 text-center mb-4">v2.1</p>
+
         <button
           onClick={handleGoogle}
           disabled={loading}
