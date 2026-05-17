@@ -180,6 +180,7 @@ async function syncMashov() {
       const homework = homeworkRes.status  === "fulfilled" ? (homeworkRes.value.data ?? []) : [];
       const hatamot  = hatamotRes.status   === "fulfilled" ? (hatamotRes.value.data  ?? []) : [];
       const timetable= timetableRes.status === "fulfilled" ? (timetableRes.value.data?? []) : [];
+      if (behave.length > 0) log("🔍", `behave[0] fields: ${JSON.stringify(behave[0])}`);
       if (behaveRes.status    === "rejected") log("⚠️", `התנהגות לא זמינה: ${behaveRes.reason?.response?.status}`);
       if (homeworkRes.status  === "rejected") log("⚠️", `שיעורי בית לא זמינים: ${homeworkRes.reason?.response?.status}`);
       if (hatamotRes.status   === "rejected") log("⚠️", `ציוד לא זמין: ${hatamotRes.reason?.response?.status}`);
