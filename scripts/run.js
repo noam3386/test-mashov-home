@@ -180,8 +180,10 @@ async function syncMashov() {
       const homework = homeworkRes.status  === "fulfilled" ? (homeworkRes.value.data ?? []) : [];
       const hatamot  = hatamotRes.status   === "fulfilled" ? (hatamotRes.value.data  ?? []) : [];
       const timetable= timetableRes.status === "fulfilled" ? (timetableRes.value.data?? []) : [];
-      if (behave.length > 0) log("🔍", `behave[0] fields: ${JSON.stringify(behave[0])}`);
-      if (behaveRes.status    === "rejected") log("⚠️", `התנהגות לא זמינה: ${behaveRes.reason?.response?.status}`);
+      log("🔍", `behave: ${behave.length} רשומות | homework: ${homework.length} | hatamot: ${hatamot.length}`);
+      if (behave.length > 0) log("🔍", `behave[0]: ${JSON.stringify(behave[0])}`);
+      if (homework.length > 0) log("🔍", `homework[0]: ${JSON.stringify(homework[0])}`);
+      if (behaveRes.status    === "rejected") log("⚠️", `התנהגות לא זמינה: ${behaveRes.reason?.response?.status} ${behaveRes.reason?.message}`);
       if (homeworkRes.status  === "rejected") log("⚠️", `שיעורי בית לא זמינים: ${homeworkRes.reason?.response?.status}`);
       if (hatamotRes.status   === "rejected") log("⚠️", `ציוד לא זמין: ${hatamotRes.reason?.response?.status}`);
       if (timetableRes.status === "rejected") log("⚠️", `מערכת שעות לא זמינה: ${timetableRes.reason?.response?.status}`);
