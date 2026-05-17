@@ -76,7 +76,7 @@ async function syncCalendar() {
     const timeMax = new Date(now.getTime() + 30 * 86400000).toISOString();
 
     let totalEvents = 0;
-    const batch = db.batch();
+    const calWrites = [];
 
     for (const cal of CALENDARS) {
       log("📅", `שולף יומן ${cal.id}...`);
@@ -96,7 +96,7 @@ async function syncCalendar() {
         if (!ev.id) continue;
         const docId = "gcal_" + ev.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
         const isAllDay = Boolean(ev.start?.date && !ev.start?.dateTime);
-        batch.set(db.collection("schedule").doc(docId), {
+        calWrites.push({ ref: db.collection("schedule").doc(docId), data: {
           source:     "google_calendar",
           externalId: ev.id,
           title:     ev.summary ?? "(ללא כותרת)",
@@ -106,11 +106,15 @@ async function syncCalendar() {
           allDay:    isAllDay,
           category:  CATEGORY_BY_COLOR[ev.colorId] ?? "family",
           updatedAt: new Date(),
-        });
+        }});
       }
     }
 
-    await batch.commit();
+    for (let i = 0; i < calWrites.length; i += 400) {
+      const b = db.batch();
+      calWrites.slice(i, i + 400).forEach(({ ref, data }) => b.set(ref, data));
+      await b.commit();
+    }
     log("✅", `יומן: ${totalEvents} אירועים עודכנו`);
     await db.collection("config").doc("calendarSync").set({
       status: "ok", events: totalEvents, syncedAt: FieldValue.serverTimestamp(),
