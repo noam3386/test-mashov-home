@@ -11,7 +11,7 @@
     }
   ],
   "hosting": {
-    "site": "family-organizer-9b56c",
+    "site": "family-dashboard-67ac1",
     "public": "web/dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
