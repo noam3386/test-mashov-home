@@ -63,7 +63,16 @@ try {
 // התנהגות
 try {
   const res = await axios.get(`${BASE_URL}/students/${session.studentId}/behave`, { headers });
-  console.log(`\n📋 התנהגות: ${res.data?.length ?? 0} רשומות`);
+  const events = res.data ?? [];
+  console.log(`\n📋 התנהגות: ${events.length} רשומות`);
+  if (events.length > 0) {
+    console.log("\n🔍 כל השדות של הרשומה הראשונה:");
+    console.log(JSON.stringify(events[0], null, 2));
+    console.log("\n📋 כל הרשומות (שדות עיקריים):");
+    events.forEach((b, i) => {
+      console.log(`  [${i+1}] ${JSON.stringify(b)}`);
+    });
+  }
 } catch (err) {
   console.log(`\n📋 התנהגות: לא זמין (${err.response?.status})`);
 }
