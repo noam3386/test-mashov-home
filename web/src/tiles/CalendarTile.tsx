@@ -93,7 +93,7 @@ export function CalendarTile() {
   return (
     <div className="tile h-full flex flex-col relative">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
         <button onClick={() => setViewMonth(m => addMonths(m, 1))}
           className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">‹</button>
         <span className="font-bold text-gray-700 text-sm">
@@ -103,77 +103,79 @@ export function CalendarTile() {
           className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors text-lg leading-none">›</button>
       </div>
 
-      {/* Day name row */}
-      <div className="grid grid-cols-7 mb-1">
+      {/* Single unified grid: 1 header row + N week rows, all in one grid for pixel-perfect alignment */}
+      <div
+        className="flex-1 min-h-0 grid gap-px"
+        style={{
+          gridTemplateColumns: "repeat(7, 1fr)",
+          gridTemplateRows: `1.25rem repeat(${weeks.length}, 1fr)`,
+        }}
+      >
+        {/* Day-name header cells */}
         {DAY_NAMES.map((d) => (
-          <div key={d} className="text-center text-xs font-semibold text-gray-400 py-0.5">{d}</div>
-        ))}
-      </div>
-
-      {/* Calendar grid */}
-      <div className="flex-1 flex flex-col gap-0.5">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-7 flex-1 gap-0.5">
-            {week.map((day) => {
-              const key    = format(day, "yyyy-MM-dd");
-              const dayEvs = byDay.get(key) ?? [];
-              const tt     = ttByDow.get(day.getDay()) ?? [];
-              const today  = isToday(day);
-              const inMonth= isSameMonth(day, viewMonth);
-              const clickable = dayEvs.length > 0 || tt.length > 0;
-
-              return (
-                <div
-                  key={key}
-                  onClick={() => openDay(day, dayEvs, tt)}
-                  className={`rounded-lg p-1 flex flex-col min-h-0 transition-colors ${clickable ? "cursor-pointer" : ""} ${
-                    today   ? "bg-blue-50 ring-1 ring-blue-300" :
-                    inMonth ? "bg-white hover:bg-gray-50"        : "bg-gray-50"
-                  }`}
-                >
-                  {/* Day number */}
-                  <div className={`text-xs font-semibold mb-0.5 text-center leading-none ${
-                    today ? "text-blue-600" : inMonth ? "text-gray-700" : "text-gray-300"
-                  }`}>
-                    {format(day, "d")}
-                  </div>
-
-                  <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-hidden">
-                    {/* Timetable row — one compact blue bar */}
-                    {tt.length > 0 && inMonth && (
-                      <div
-                        className="bg-blue-400 rounded text-white text-center leading-none px-0.5 py-0.5 truncate"
-                        style={{ fontSize: "0.55rem" }}
-                      >
-                        📚 {tt.length} שיעורים
-                      </div>
-                    )}
-
-                    {/* Calendar events */}
-                    {dayEvs.slice(0, tt.length > 0 ? 2 : 3).map((ev) => (
-                      <div
-                        key={ev.id}
-                        className={`rounded text-white text-center leading-none px-0.5 py-0.5 truncate ${CAT_COLOR[ev.category] ?? "bg-gray-400"}`}
-                        style={{ fontSize: "0.55rem" }}
-                      >
-                        {ev.title}
-                      </div>
-                    ))}
-                    {dayEvs.length > (tt.length > 0 ? 2 : 3) && (
-                      <div className="text-gray-400 text-center leading-none" style={{ fontSize: "0.55rem" }}>
-                        +{dayEvs.length - (tt.length > 0 ? 2 : 3)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div key={d} className="flex items-center justify-center text-xs font-semibold text-gray-400">
+            {d}
           </div>
         ))}
+
+        {/* All day cells flattened */}
+        {weeks.flat().map((day) => {
+          const key     = format(day, "yyyy-MM-dd");
+          const dayEvs  = byDay.get(key) ?? [];
+          const tt      = ttByDow.get(day.getDay()) ?? [];
+          const today   = isToday(day);
+          const inMonth = isSameMonth(day, viewMonth);
+          const clickable = dayEvs.length > 0 || tt.length > 0;
+
+          return (
+            <div
+              key={key}
+              onClick={() => openDay(day, dayEvs, tt)}
+              className={`rounded p-0.5 flex flex-col min-h-0 overflow-hidden transition-colors ${clickable ? "cursor-pointer" : ""} ${
+                today   ? "bg-blue-50 ring-1 ring-blue-300" :
+                inMonth ? "bg-white hover:bg-gray-50"        : "bg-gray-50"
+              }`}
+            >
+              {/* Day number */}
+              <div className={`text-center leading-none mb-px flex-shrink-0 ${
+                today ? "font-bold text-blue-600" : inMonth ? "text-gray-700" : "text-gray-300"
+              }`} style={{ fontSize: "0.6rem" }}>
+                {format(day, "d")}
+              </div>
+
+              <div className="flex flex-col gap-px flex-1 min-h-0 overflow-hidden">
+                {/* Timetable row */}
+                {tt.length > 0 && inMonth && (
+                  <div
+                    className="bg-blue-400 rounded-sm text-white text-center leading-none px-0.5 flex-shrink-0"
+                    style={{ fontSize: "0.5rem", paddingTop: "1px", paddingBottom: "1px" }}
+                  >
+                    {tt.length} שיעורים
+                  </div>
+                )}
+                {/* Calendar events */}
+                {dayEvs.slice(0, tt.length > 0 ? 1 : 2).map((ev) => (
+                  <div
+                    key={ev.id}
+                    className={`rounded-sm text-white text-center leading-none px-0.5 truncate flex-shrink-0 ${CAT_COLOR[ev.category] ?? "bg-gray-400"}`}
+                    style={{ fontSize: "0.5rem", paddingTop: "1px", paddingBottom: "1px" }}
+                  >
+                    {ev.title}
+                  </div>
+                ))}
+                {dayEvs.length > (tt.length > 0 ? 1 : 2) && (
+                  <div className="text-gray-400 text-center leading-none flex-shrink-0" style={{ fontSize: "0.5rem" }}>
+                    +{dayEvs.length - (tt.length > 0 ? 1 : 2)}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Legend */}
-      <div className="flex gap-3 justify-center mt-1.5 flex-wrap">
+      <div className="flex gap-3 justify-center mt-1 flex-wrap flex-shrink-0">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-blue-400" />
           <span className="text-xs text-gray-400">מערכת שעות</span>
