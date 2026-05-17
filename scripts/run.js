@@ -219,8 +219,10 @@ async function syncMashov() {
             categoryName: b.categoryName ?? b.eventType ?? "",
             justified: b.justified ?? -1,
             groupId: b.groupId ?? null,
-            lesson: b.lesson ?? b.lessonId ?? null,
-            teacherName: b.reporterName ?? "",
+            lesson: b.lesson ?? null,
+            subject: b.subject ?? "",
+            teacherName: b.reporter ?? b.reporterName ?? "",
+            justification: b.justification ?? "",
             eventDate: new Date(b.timestamp ?? b.lessonDate),
             fetchedAt: FieldValue.serverTimestamp(), read: false,
           }});

@@ -15,6 +15,8 @@ interface BehaviorEvent {
   remark?: string;
   groupId?: string;
   lesson?: number;
+  subject?: string;
+  justification?: string;
 }
 
 const EVENT_STYLE: Record<number, { label: string; color: string; bg: string }> = {
@@ -108,6 +110,12 @@ export function BehaviorTile() {
                         <span style={{ fontSize: 12, color: 'var(--fd-ink)' }}>{selected.lesson}</span>
                       </div>
                     )}
+                    {selected.subject && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: 'var(--fd-faint)', fontWeight: 600 }}>מקצוע</span>
+                        <span style={{ fontSize: 12, color: 'var(--fd-ink)' }}>{selected.subject}</span>
+                      </div>
+                    )}
                     {selected.teacherName && (
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 12, color: 'var(--fd-faint)', fontWeight: 600 }}>מורה</span>
@@ -120,6 +128,12 @@ export function BehaviorTile() {
                         {selected.justified === 1 ? '✓ כן' : '✗ לא'}
                       </span>
                     </div>
+                    {selected.justification && selected.justification !== 'ללא הערות' && (
+                      <div style={{ marginTop: 4, padding: '10px 14px', background: s.bg, borderRadius: 12 }}>
+                        <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 4 }}>הצדקה</div>
+                        <div style={{ fontSize: 13, color: 'var(--fd-ink)', lineHeight: 1.5 }}>{selected.justification}</div>
+                      </div>
+                    )}
                     {selected.remark && (
                       <div style={{ marginTop: 4, padding: '10px 14px', background: s.bg, borderRadius: 12 }}>
                         <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 4 }}>הערה</div>
