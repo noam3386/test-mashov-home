@@ -190,10 +190,12 @@ async function syncMashov() {
         }
       }
 
-      // Fetch existing docIds to avoid overwriting (one parallel read per collection)
+      // Fetch existing docIds — only last 90 days to stay within Firestore free quota
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
       const existingSnap = await db.collection("schoolUpdates")
         .where("memberId", "==", student.memberId)
-        .select() // no fields needed, just doc IDs
+        .where("eventDate", ">=", ninetyDaysAgo)
+        .select()
         .get();
       const existingIds = new Set(existingSnap.docs.map(d => d.id));
 
