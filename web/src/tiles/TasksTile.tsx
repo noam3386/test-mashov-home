@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Timestamp, doc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
 import { startOfDay, endOfDay, format } from "date-fns";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 import { db } from "../firebase";
 
 interface Task {
@@ -99,11 +100,12 @@ function TaskForm({
 }
 
 export function TasksTile({ mode }: Props) {
+  const familyId = useFamilyId();
   const now = new Date();
   const [adding,   setAdding]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { data: allTasks, loading } = useRealtimeCollection<Task>("tasks", []);
+  const { data: allTasks, loading } = useRealtimeCollection<Task>(`families/${familyId}/tasks`, []);
 
   const tasks = allTasks.filter((t) => {
     if (mode === "today") {
@@ -117,7 +119,7 @@ export function TasksTile({ mode }: Props) {
   async function toggle(task: Task) {
     if (editingId) return;
     const done = task.status !== "done";
-    await updateDoc(doc(db, "tasks", task.id), {
+    await updateDoc(doc(db, `families/${familyId}/tasks`, task.id), {
       status: done ? "done" : "pending",
       completedAt: done ? new Date() : null,
       updatedAt: new Date(),
@@ -126,7 +128,7 @@ export function TasksTile({ mode }: Props) {
 
   async function addTask(title: string, priority: string, dueDate: string) {
     const due = new Date(dueDate + "T23:59:59");
-    await addDoc(collection(db, "tasks"), {
+    await addDoc(collection(db, `families/${familyId}/tasks`), {
       title,
       priority,
       status: "pending",
@@ -141,7 +143,7 @@ export function TasksTile({ mode }: Props) {
 
   async function editTask(id: string, title: string, priority: string, dueDate: string) {
     const due = new Date(dueDate + "T23:59:59");
-    await updateDoc(doc(db, "tasks", id), {
+    await updateDoc(doc(db, `families/${familyId}/tasks`, id), {
       title,
       priority,
       dueDate: Timestamp.fromDate(due),
@@ -151,7 +153,7 @@ export function TasksTile({ mode }: Props) {
   }
 
   async function deleteTask(id: string) {
-    await deleteDoc(doc(db, "tasks", id));
+    await deleteDoc(doc(db, `families/${familyId}/tasks`, id));
     setEditingId(null);
   }
 

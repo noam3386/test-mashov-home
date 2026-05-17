@@ -2,6 +2,7 @@ import { where, Timestamp, doc, updateDoc } from "firebase/firestore";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 import { db } from "../firebase";
 
 interface TimetableEntry {
@@ -35,6 +36,7 @@ function tomorrowDay() {
 const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
 export function SchoolTomorrowTile({ memberId }: { memberId?: string }) {
+  const familyId = useFamilyId();
   const tomorrow = getTomorrow();
   const tomorrowDayNum = tomorrowDay();
 
@@ -43,7 +45,7 @@ export function SchoolTomorrowTile({ memberId }: { memberId?: string }) {
     : [where("day", "==", tomorrowDayNum)];
 
   const { data: timetableRaw, loading: ttLoading } = useRealtimeCollection<TimetableEntry>(
-    "timetable",
+    `families/${familyId}/timetable`,
     ttConstraints
   );
   const timetableAll = [...timetableRaw].sort((a, b) => a.lesson - b.lesson);
@@ -56,7 +58,7 @@ export function SchoolTomorrowTile({ memberId }: { memberId?: string }) {
     : [where("type", "in", ["homework", "hatamot"])];
 
   const { data: schoolUpdates, loading: suLoading } = useRealtimeCollection<SchoolUpdate>(
-    "schoolUpdates",
+    `families/${familyId}/schoolUpdates`,
     suConstraints
   );
 
@@ -73,7 +75,7 @@ export function SchoolTomorrowTile({ memberId }: { memberId?: string }) {
   const pendingHw= homework.filter((u) => !u.read);
 
   async function toggleDone(id: string, current: boolean) {
-    await updateDoc(doc(db, "schoolUpdates", id), { read: !current });
+    await updateDoc(doc(db, `families/${familyId}/schoolUpdates`, id), { read: !current });
   }
 
   const loading = ttLoading || suLoading;

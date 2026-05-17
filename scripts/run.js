@@ -1,13 +1,12 @@
 /**
- * Family Dashboard — Home Automation Runner
- * ==========================================
- * Run once: node run.js
- * Runs forever in background, syncing:
- *   • Google Calendar → Firestore  (every 60 min)
- *   • Mashov grades/messages        (every 120 min, Sun-Thu only)
+ * Multi-Family Dashboard Sync Runner
+ * ===================================
+ * Reads all family configs from Firestore, syncs each family's:
+ *   • Google Calendar → families/{familyId}/schedule
+ *   • Mashov data     → families/{familyId}/schoolUpdates + timetable
  *
- * Windows auto-start: see README below
- * Mac auto-start:     see README below
+ * Each family configures their credentials via the web app Settings page.
+ * Credentials are stored in families/{familyId}/settings/mashov (Admin SDK only).
  */
 
 import { google } from "googleapis";
@@ -24,12 +23,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const CALENDARS = [
-  { id: "family13278164042447766357@group.calendar.google.com", memberIds: ["uid_aviv"] },
-  // { id: "SHISHIGAM_CALENDAR_ID@group.calendar.google.com",    memberIds: ["uid_aviv"] }, // ← שישיגם (להוסיף)
-];
-const CALENDAR_SYNC_INTERVAL_MS  = 60  * 60 * 1000; // 60 דקות
-const MASHOV_SYNC_INTERVAL_MS    = 120 * 60 * 1000; // 120 דקות
+const CALENDAR_SYNC_INTERVAL_MS = 60  * 60 * 1000; // 60 min
+const MASHOV_SYNC_INTERVAL_MS   = 120 * 60 * 1000; // 120 min
 
 const MASHOV_BASE = "https://web.mashov.info/api";
 const USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -59,10 +54,31 @@ function log(emoji, msg) {
   console.log(`[${new Date().toLocaleTimeString("he-IL")}] ${emoji}  ${msg}`);
 }
 
+// ─── Family Discovery ─────────────────────────────────────────────────────────
+
+async function getAllFamilySettings() {
+  const familiesSnap = await db.collection("families").get();
+  const results = [];
+  for (const familyDoc of familiesSnap.docs) {
+    const familyId = familyDoc.id;
+    const settingsSnap = await db
+      .collection("families")
+      .doc(familyId)
+      .collection("settings")
+      .doc("mashov")
+      .get();
+    if (settingsSnap.exists) {
+      results.push({ familyId, settings: settingsSnap.data() });
+    }
+  }
+  return results;
+}
+
 // ─── Google Calendar Sync ─────────────────────────────────────────────────────
 
-async function syncCalendar() {
-  log("📅", `מסנכרן ${CALENDARS.length} יומנים...`);
+async function syncCalendarForFamily(familyId, calendarId) {
+  if (!calendarId) return;
+  log("📅", `[${familyId}] מסנכרן יומן ${calendarId.slice(0, 20)}...`);
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(readFileSync(saPath, "utf8")),
@@ -70,66 +86,71 @@ async function syncCalendar() {
     });
     const calendar = google.calendar({ version: "v3", auth });
 
-    const now = new Date();
+    const now     = new Date();
     const timeMin = new Date(now.getTime() - 7  * 86400000).toISOString();
     const timeMax = new Date(now.getTime() + 30 * 86400000).toISOString();
 
-    let totalEvents = 0;
-    const batch = db.batch();
+    const res = await calendar.events.list({
+      calendarId,
+      timeMin, timeMax,
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 250,
+    });
 
-    for (const cal of CALENDARS) {
-      const res = await calendar.events.list({
-        calendarId: cal.id,
-        timeMin, timeMax,
-        singleEvents: true,
-        orderBy: "startTime",
-        maxResults: 250,
+    const events = res.data.items ?? [];
+    const batch  = db.batch();
+    const scheduleCol = db
+      .collection("families")
+      .doc(familyId)
+      .collection("schedule");
+
+    for (const ev of events) {
+      if (!ev.id) continue;
+      const docId    = "gcal_" + ev.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const isAllDay = Boolean(ev.start?.date && !ev.start?.dateTime);
+      batch.set(scheduleCol.doc(docId), {
+        source:     "google_calendar",
+        externalId: ev.id,
+        title:      ev.summary ?? "(ללא כותרת)",
+        startTime:  isAllDay ? new Date(ev.start.date + "T00:00:00") : new Date(ev.start.dateTime),
+        endTime:    isAllDay ? new Date(ev.end.date   + "T23:59:59") : new Date(ev.end.dateTime),
+        allDay:     isAllDay,
+        category:   CATEGORY_BY_COLOR[ev.colorId] ?? "family",
+        updatedAt:  new Date(),
       });
-
-      const events = res.data.items ?? [];
-      totalEvents += events.length;
-
-      for (const ev of events) {
-        if (!ev.id) continue;
-        const docId = "gcal_" + ev.id.replace(/@.*/, "").replace(/[^a-zA-Z0-9_-]/g, "_");
-        const isAllDay = Boolean(ev.start?.date && !ev.start?.dateTime);
-        batch.set(db.collection("schedule").doc(docId), {
-          source:     "google_calendar",
-          externalId: ev.id,
-          title:     ev.summary ?? "(ללא כותרת)",
-          memberId:  cal.memberIds,
-          startTime: isAllDay ? new Date(ev.start.date + "T00:00:00") : new Date(ev.start.dateTime),
-          endTime:   isAllDay ? new Date(ev.end.date   + "T23:59:59") : new Date(ev.end.dateTime),
-          allDay:    isAllDay,
-          category:  CATEGORY_BY_COLOR[ev.colorId] ?? "family",
-          updatedAt: new Date(),
-        });
-      }
     }
 
     await batch.commit();
-    log("✅", `יומן: ${totalEvents} אירועים עודכנו`);
+    log("✅", `[${familyId}] יומן: ${events.length} אירועים`);
   } catch (err) {
-    log("❌", `יומן נכשל: ${err.message}`);
+    log("❌", `[${familyId}] יומן נכשל: ${err.message}`);
   }
 }
 
 // ─── Mashov Sync ─────────────────────────────────────────────────────────────
 
-async function syncMashov() {
-  const day = new Date().getDay(); // 0=Sun ... 6=Sat
-  if (day === 6) { // שבת בלבד
-    log("⏭️", "מחוון: דילוג (שבת)");
-    return;
+async function syncMashovForFamily(familyId, students) {
+  const day = new Date().getDay();
+  if (day === 6) { log("⏭️", `[${familyId}] מחוון: דילוג (שבת)`); return; }
+
+  const schoolUpdatesCol = db.collection("families").doc(familyId).collection("schoolUpdates");
+  const timetableCol     = db.collection("families").doc(familyId).collection("timetable");
+  const configRef        = db.collection("families").doc(familyId).collection("config").doc("mashov");
+
+  async function commitInChunks(writes) {
+    for (let i = 0; i < writes.length; i += 400) {
+      const b = db.batch();
+      writes.slice(i, i + 400).forEach(({ ref, data }) => b.set(ref, data));
+      await b.commit();
+    }
   }
 
-  log("🏫", "מסנכרן מחוון...");
-
-  const configSnap = await db.collection("config").doc("mashov").get();
-  const students = configSnap.data()?.students ?? [];
-  if (!students.length) { log("⚠️", "מחוון: אין תלמידים מוגדרים"); return; }
-
   for (const student of students) {
+    if (!student.memberId || !student.username || !student.password || !student.semel) {
+      log("⚠️", `[${familyId}] תלמיד חסר פרטים — מדלג`);
+      continue;
+    }
     try {
       const jar    = new CookieJar();
       const client = wrapper(axios.create({ jar }));
@@ -143,54 +164,42 @@ async function syncMashov() {
 
       const csrfToken = loginRes.headers["x-csrf-token"];
       const cookies   = (await jar.getCookies(MASHOV_BASE)).map(c => `${c.key}=${c.value}`).join("; ");
-      // Use GUID from credential.userId, not idNumber
       const studentId = loginRes.data?.credential?.userId
         ?? loginRes.data?.accessToken?.children?.[0]?.childGuid
         ?? student.username;
       const headers   = { "User-Agent": USER_AGENT, "Cookie": cookies, "X-Csrf-Token": csrfToken, "X-Requested-With": "XMLHttpRequest" };
 
-      log("🔑", `studentId: ${studentId}`);
+      log("🔑", `[${familyId}] studentId: ${studentId}`);
 
-      // Fetch all available endpoints in parallel
       const [behaveRes, homeworkRes, hatamotRes, timetableRes] = await Promise.allSettled([
-        axios.get(`${MASHOV_BASE}/students/${studentId}/behave`,   { headers }),
-        axios.get(`${MASHOV_BASE}/students/${studentId}/homework`, { headers }),
-        axios.get(`${MASHOV_BASE}/students/${studentId}/hatamot`,  { headers }),
-        axios.get(`${MASHOV_BASE}/students/${studentId}/timetable`,{ headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/behave`,    { headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/homework`,  { headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/hatamot`,   { headers }),
+        axios.get(`${MASHOV_BASE}/students/${studentId}/timetable`, { headers }),
       ]);
-      const behave   = behaveRes.status    === "fulfilled" ? (behaveRes.value.data   ?? []) : [];
-      const homework = homeworkRes.status  === "fulfilled" ? (homeworkRes.value.data ?? []) : [];
-      const hatamot  = hatamotRes.status   === "fulfilled" ? (hatamotRes.value.data  ?? []) : [];
-      const timetable= timetableRes.status === "fulfilled" ? (timetableRes.value.data?? []) : [];
-      if (behaveRes.status    === "rejected") log("⚠️", `התנהגות לא זמינה: ${behaveRes.reason?.response?.status}`);
-      if (homeworkRes.status  === "rejected") log("⚠️", `שיעורי בית לא זמינים: ${homeworkRes.reason?.response?.status}`);
-      if (hatamotRes.status   === "rejected") log("⚠️", `ציוד לא זמין: ${hatamotRes.reason?.response?.status}`);
-      if (timetableRes.status === "rejected") log("⚠️", `מערכת שעות לא זמינה: ${timetableRes.reason?.response?.status}`);
+      const behave    = behaveRes.status    === "fulfilled" ? (behaveRes.value.data   ?? []) : [];
+      const homework  = homeworkRes.status  === "fulfilled" ? (homeworkRes.value.data ?? []) : [];
+      const hatamot   = hatamotRes.status   === "fulfilled" ? (hatamotRes.value.data  ?? []) : [];
+      const timetable = timetableRes.status === "fulfilled" ? (timetableRes.value.data ?? []) : [];
 
-      // Commit an array of writes split into chunks of 400 (Firestore limit = 500)
-      async function commitInChunks(writes) {
-        for (let i = 0; i < writes.length; i += 400) {
-          const b = db.batch();
-          writes.slice(i, i + 400).forEach(({ ref, data }) => b.set(ref, data));
-          await b.commit();
-        }
-      }
+      if (behaveRes.status    === "rejected") log("⚠️", `[${familyId}] התנהגות: ${behaveRes.reason?.response?.status}`);
+      if (homeworkRes.status  === "rejected") log("⚠️", `[${familyId}] שיעורי בית: ${homeworkRes.reason?.response?.status}`);
+      if (hatamotRes.status   === "rejected") log("⚠️", `[${familyId}] ציוד: ${hatamotRes.reason?.response?.status}`);
+      if (timetableRes.status === "rejected") log("⚠️", `[${familyId}] מערכת שעות: ${timetableRes.reason?.response?.status}`);
 
-      // Fetch existing docIds to avoid overwriting (one parallel read per collection)
-      const existingSnap = await db.collection("schoolUpdates")
+      const existingSnap = await schoolUpdatesCol
         .where("memberId", "==", student.memberId)
-        .select() // no fields needed, just doc IDs
+        .select()
         .get();
       const existingIds = new Set(existingSnap.docs.map(d => d.id));
 
       const writes = [];
 
-      // Behavior events (write only new)
       for (const b of behave) {
         const dateKey = (b.timestamp ?? b.lessonDate ?? "").slice(0, 10);
-        const docId = `behave_${student.memberId}_${b.lessonId ?? b.groupId}_${dateKey}`;
+        const docId   = `behave_${student.memberId}_${b.lessonId ?? b.groupId}_${dateKey}`;
         if (!existingIds.has(docId)) {
-          writes.push({ ref: db.collection("schoolUpdates").doc(docId), data: {
+          writes.push({ ref: schoolUpdatesCol.doc(docId), data: {
             memberId: student.memberId, type: "behavior",
             eventCode: b.eventCode ?? 0,
             categoryName: b.categoryName ?? b.eventType ?? "",
@@ -204,11 +213,10 @@ async function syncMashov() {
         }
       }
 
-      // Homework (write only new — docId per lessonId is stable)
       for (const h of homework) {
         const docId = `hw_${student.memberId}_${h.lessonId}`;
         if (!existingIds.has(docId)) {
-          writes.push({ ref: db.collection("schoolUpdates").doc(docId), data: {
+          writes.push({ ref: schoolUpdatesCol.doc(docId), data: {
             memberId: student.memberId, type: "homework",
             subject: h.subjectName ?? "",
             title: h.subjectName ?? "",
@@ -221,10 +229,9 @@ async function syncMashov() {
         }
       }
 
-      // Equipment / Hatamot (always overwrite — may change)
       for (const item of hatamot) {
-        const docId = `hat_${student.memberId}_${item.code ?? item.name?.slice(0,10)}`;
-        writes.push({ ref: db.collection("schoolUpdates").doc(docId), data: {
+        const docId = `hat_${student.memberId}_${item.code ?? item.name?.slice(0, 10)}`;
+        writes.push({ ref: schoolUpdatesCol.doc(docId), data: {
           memberId: student.memberId, type: "hatamot",
           title: item.name ?? "",
           body: item.remark ?? "",
@@ -234,14 +241,12 @@ async function syncMashov() {
       }
 
       await commitInChunks(writes);
-      const newCount = writes.length;
 
-      // Timetable (overwrite all — store in separate collection)
       const ttWrites = timetable.map(entry => {
-        const tt = entry.timeTable ?? entry;
-        const gd = entry.groupDetails ?? {};
+        const tt  = entry.timeTable ?? entry;
+        const gd  = entry.groupDetails ?? {};
         const docId = `tt_${student.memberId}_d${tt.day}_l${tt.lesson}`;
-        return { ref: db.collection("timetable").doc(docId), data: {
+        return { ref: timetableCol.doc(docId), data: {
           memberId: student.memberId,
           day: tt.day - 1, lesson: tt.lesson, roomNum: tt.roomNum ?? "",
           subjectName: gd.subjectName ?? tt.subjectName ?? "",
@@ -250,43 +255,45 @@ async function syncMashov() {
           updatedAt: FieldValue.serverTimestamp(),
         }};
       });
-      if (ttWrites.length > 0) {
-        await commitInChunks(ttWrites);
-        log("📋", `מערכת שעות: ${ttWrites.length} שיעורים עודכנו`);
-      }
+      if (ttWrites.length > 0) await commitInChunks(ttWrites);
 
       await axios.post(`${MASHOV_BASE}/logout`, {}, { headers }).catch(() => {});
-      log("✅", `מחוון ${student.memberId}: ${newCount} רשומות חדשות`);
+      log("✅", `[${familyId}] ${student.memberId}: ${writes.length} רשומות חדשות`);
 
-      await db.collection("config").doc("mashov").update({
-        consecutiveFailures: 0,
-        lastSyncAt: FieldValue.serverTimestamp(),
-      });
+      await configRef.set({ consecutiveFailures: 0, lastSyncAt: FieldValue.serverTimestamp() }, { merge: true });
     } catch (err) {
-      log("❌", `מחוון ${student.memberId} נכשל: ${err.response?.status ?? err.message}`);
-      await db.collection("config").doc("mashov").update({
-        consecutiveFailures: FieldValue.increment(1),
-      }).catch(() => {});
+      log("❌", `[${familyId}] ${student.memberId} נכשל: ${err.response?.status ?? err.message}`);
+      await configRef.set({ consecutiveFailures: FieldValue.increment(1) }, { merge: true }).catch(() => {});
     }
   }
 }
 
-// ─── Main Loop ────────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
-log("🚀", "Family Dashboard Sync — מתחיל");
+async function syncAll() {
+  const families = await getAllFamilySettings();
+  log("🏠", `נמצאו ${families.length} משפחות`);
 
-await syncCalendar();
-await syncMashov();
+  for (const { familyId, settings } of families) {
+    const students   = settings.students   ?? [];
+    const calendarId = settings.calendarId ?? null;
 
-// In CI (GitHub Actions) — exit after one run
+    if (calendarId) await syncCalendarForFamily(familyId, calendarId);
+    if (students.length) await syncMashovForFamily(familyId, students);
+    else log("⚠️", `[${familyId}] אין תלמידים מוגדרים`);
+  }
+}
+
+log("🚀", "Multi-Family Dashboard Sync — מתחיל");
+
+await syncAll();
+
 if (process.env.CI) {
   log("✅", "סנכרון הסתיים — יוצא");
   process.exit(0);
 }
 
-// Local: keep running on intervals
-log("⏰", `יומן: כל ${CALENDAR_SYNC_INTERVAL_MS / 60000} דקות | מחוון: כל ${MASHOV_SYNC_INTERVAL_MS / 60000} דקות`);
-setInterval(syncCalendar, CALENDAR_SYNC_INTERVAL_MS);
-setInterval(syncMashov,   MASHOV_SYNC_INTERVAL_MS);
+log("⏰", `רץ כל ${CALENDAR_SYNC_INTERVAL_MS / 60000} דקות (יומן) / ${MASHOV_SYNC_INTERVAL_MS / 60000} דקות (מחוון)`);
+setInterval(syncAll, Math.min(CALENDAR_SYNC_INTERVAL_MS, MASHOV_SYNC_INTERVAL_MS));
 
 log("💤", "רץ ברקע — השאר חלון זה פתוח");

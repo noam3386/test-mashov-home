@@ -2,6 +2,7 @@ import { where, Timestamp } from "firebase/firestore";
 import { startOfWeek, endOfWeek, format, isToday } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 
 interface ScheduleEvent {
   id: string;
@@ -22,11 +23,12 @@ const DAY_COLORS = [
 ];
 
 export function ChuggimTile() {
+  const familyId = useFamilyId();
   const now = new Date();
   const weekStart = startOfWeek(now, { weekStartsOn: 0 });
   const weekEnd   = endOfWeek(now,   { weekStartsOn: 0 });
 
-  const { data: events, loading } = useRealtimeCollection<ScheduleEvent>("schedule", [
+  const { data: events, loading } = useRealtimeCollection<ScheduleEvent>(`families/${familyId}/schedule`, [
     where("category", "==", "chug"),
     where("startTime", ">=", Timestamp.fromDate(weekStart)),
     where("startTime", "<=", Timestamp.fromDate(weekEnd)),

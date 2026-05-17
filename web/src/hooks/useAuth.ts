@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as fbSignOut,
+  User,
+} from "firebase/auth";
 import { auth } from "../firebase";
 
 export function useAuth() {
@@ -13,5 +18,13 @@ export function useAuth() {
     });
   }, []);
 
-  return { user, uid: user?.uid ?? null, loading };
+  async function signIn(email: string, password: string) {
+    await signInWithEmailAndPassword(auth, email, password);
+  }
+
+  async function signOut() {
+    await fbSignOut(auth);
+  }
+
+  return { user, uid: user?.uid ?? null, loading, signIn, signOut };
 }

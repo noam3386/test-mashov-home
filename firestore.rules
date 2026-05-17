@@ -3,45 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() {
-      return request.auth != null;
+    // ── Multi-tenant family data ────────────────────────────────────────────
+    // Each family's data lives under /families/{familyId}/...
+    // Only the authenticated user who owns the family can read/write their data.
+
+    match /families/{familyId}/{collection}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == familyId;
     }
 
-    function isParent() {
-      return isAuth() &&
-        get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'parent';
+    // Settings (credentials) — writable by the owner, readable by owner
+    // The GitHub Actions Admin SDK bypasses these rules entirely.
+    match /families/{familyId}/settings/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == familyId;
     }
 
-    // תצוגה ציבורית — קריאה חופשית (דשבורד ביתי)
-    match /schedule/{eventId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    match /schoolUpdates/{updateId} {
-      allow read: if true;
-      allow update: if isAuth() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow create, delete: if false;
-    }
-
-    match /tasks/{taskId} {
-      allow read, write: if true;
-    }
-
-    match /members/{memberId} {
-      allow read: if true;
-      allow write: if isParent();
-    }
-
-    match /timetable/{entryId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // config — רק Admin SDK
-    match /config/{configId} {
-      allow read: if isParent();
+    // Config (sync status written by Admin SDK) — readable by owner, not writable from browser
+    match /families/{familyId}/config/{doc} {
+      allow read: if request.auth != null && request.auth.uid == familyId;
       allow write: if false;
     }
   }

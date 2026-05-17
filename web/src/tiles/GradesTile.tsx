@@ -1,5 +1,6 @@
 import { where, orderBy, limit, Timestamp, doc, updateDoc } from "firebase/firestore";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 import { db } from "../firebase";
 
 interface SchoolUpdate {
@@ -14,13 +15,14 @@ interface SchoolUpdate {
 }
 
 export function GradesTile() {
+  const familyId = useFamilyId();
   const { data: grades, loading } = useRealtimeCollection<SchoolUpdate>(
-    "schoolUpdates",
+    `families/${familyId}/schoolUpdates`,
     [where("type", "==", "grade"), orderBy("eventDate", "desc"), limit(5)]
   );
 
   async function markRead(id: string) {
-    await updateDoc(doc(db, "schoolUpdates", id), { read: true });
+    await updateDoc(doc(db, `families/${familyId}/schoolUpdates`, id), { read: true });
   }
 
   return (

@@ -2,6 +2,7 @@ import { Timestamp, where } from "firebase/firestore";
 import { format, isToday, isTomorrow, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 
 interface ScheduleEvent {
   id: string;
@@ -63,6 +64,7 @@ function dayLabel(date: Date): string {
 }
 
 export function EventsBoardTile({ memberId }: { memberId?: string }) {
+  const familyId = useFamilyId();
   const now   = new Date();
   const start = startOfDay(now);
   const end   = addDays(start, 3);
@@ -71,9 +73,9 @@ export function EventsBoardTile({ memberId }: { memberId?: string }) {
     ? [where("memberId", "==", memberId), where("type", "==", "homework")]
     : [where("type", "==", "homework")];
 
-  const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>("schedule", []);
-  const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", hwConstraints);
-  const { data: tasks }          = useRealtimeCollection<Task>("tasks", []);
+  const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>(`families/${familyId}/schedule`, []);
+  const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>(`families/${familyId}/schoolUpdates`, hwConstraints);
+  const { data: tasks }          = useRealtimeCollection<Task>(`families/${familyId}/tasks`, []);
 
   // Build unified event list
   const items: EventItem[] = [];

@@ -6,6 +6,7 @@ import {
 } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 
 interface ScheduleEvent {
   id: string;
@@ -45,6 +46,7 @@ const CAT_BADGE: Record<string, string> = {
 const DAY_NAMES = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 
 export function CalendarTile() {
+  const familyId = useFamilyId();
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedEvs, setSelectedEvs] = useState<ScheduleEvent[]>([]);
@@ -56,12 +58,12 @@ export function CalendarTile() {
   const calEnd     = endOfWeek(monthEnd,     { weekStartsOn: 0 });
   const days       = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const { data: events } = useRealtimeCollection<ScheduleEvent>("schedule", [
+  const { data: events } = useRealtimeCollection<ScheduleEvent>(`families/${familyId}/schedule`, [
     where("startTime", ">=", Timestamp.fromDate(calStart)),
     where("startTime", "<=", Timestamp.fromDate(calEnd)),
   ]);
 
-  const { data: timetableAll } = useRealtimeCollection<TimetableEntry>("timetable", []);
+  const { data: timetableAll } = useRealtimeCollection<TimetableEntry>(`families/${familyId}/timetable`, []);
 
   // Group calendar events by date
   const byDay = new Map<string, ScheduleEvent[]>();

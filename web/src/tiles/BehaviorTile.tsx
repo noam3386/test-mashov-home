@@ -3,6 +3,7 @@ import { where, Timestamp, doc, updateDoc } from "firebase/firestore";
 import { format, isToday, isYesterday, subDays, startOfDay } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
+import { useFamilyId } from "../context/FamilyContext";
 import { db } from "../firebase";
 
 interface BehaviorEvent {
@@ -33,24 +34,22 @@ function dayLabel(date: Date) {
   return format(date, "d/M", { locale: he });
 }
 
-async function markRead(id: string) {
-  await updateDoc(doc(db, "schoolUpdates", id), { read: true });
-}
-
 function EventDetailModal({
   ev,
   onClose,
   onArchive,
+  onMarkRead,
 }: {
   ev: BehaviorEvent;
   onClose: () => void;
   onArchive: () => void;
+  onMarkRead: (id: string) => Promise<void>;
 }) {
   const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
   const date = ev.eventDate?.toDate?.();
 
   async function handleArchive() {
-    await markRead(ev.id);
+    await onMarkRead(ev.id);
     onArchive();
   }
 
@@ -59,7 +58,6 @@ function EventDetailModal({
       onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm"
         onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <span className={`font-bold text-base ${s.text}`}>
             {ev.categoryName || s.label}
@@ -69,7 +67,6 @@ function EventDetailModal({
             ✕
           </button>
         </div>
-        {/* Details */}
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-400">סוג</span>
@@ -106,7 +103,6 @@ function EventDetailModal({
             </div>
           )}
         </div>
-        {/* Archive button — only for unread events */}
         {!ev.read && (
           <div className="px-4 pb-4">
             <button
@@ -162,24 +158,27 @@ function EventRow({
 }
 
 export function BehaviorTile({ memberId }: { memberId?: string }) {
+  const familyId = useFamilyId();
   const [listOpen, setListOpen]       = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [detail, setDetail]           = useState<BehaviorEvent | null>(null);
+
+  async function markRead(id: string) {
+    await updateDoc(doc(db, `families/${familyId}/schoolUpdates`, id), { read: true });
+  }
 
   const constraints = memberId
     ? [where("memberId", "==", memberId), where("type", "==", "behavior")]
     : [where("type", "==", "behavior")];
 
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
-    "schoolUpdates", constraints
+    `families/${familyId}/schoolUpdates`, constraints
   );
 
   const cutoff = startOfDay(subDays(new Date(), 7));
 
   const all     = [...rawEvents].sort((a, b) => b.eventDate.toMillis() - a.eventDate.toMillis());
-  // Active: unread AND within last 7 days
   const active  = all.filter(e => !e.read && e.eventDate.toDate() >= cutoff);
-  // Archive: read OR older than 7 days
   const archive = all.filter(e => e.read  || e.eventDate.toDate() < cutoff);
 
   const recent   = active.slice(0, 3);
@@ -222,7 +221,6 @@ export function BehaviorTile({ memberId }: { memberId?: string }) {
           </div>
         ) : (
           <>
-            {/* Summary chips */}
             <div className="flex gap-2 mb-3 flex-wrap">
               {absences > 0 && (
                 <div className="flex items-center gap-1 bg-red-50 rounded-full px-2.5 py-1">
@@ -244,7 +242,6 @@ export function BehaviorTile({ memberId }: { memberId?: string }) {
               )}
             </div>
 
-            {/* Recent active events */}
             <ul className="space-y-1.5 flex-1 overflow-hidden">
               {recent.map((ev) => {
                 const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
@@ -271,16 +268,15 @@ export function BehaviorTile({ memberId }: { memberId?: string }) {
         )}
       </div>
 
-      {/* Single event detail popup */}
       {detail && (
         <EventDetailModal
           ev={detail}
           onClose={() => setDetail(null)}
           onArchive={() => setDetail(null)}
+          onMarkRead={markRead}
         />
       )}
 
-      {/* Full list + archive modal */}
       {listOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
           onClick={() => setListOpen(false)}>
@@ -294,7 +290,6 @@ export function BehaviorTile({ memberId }: { memberId?: string }) {
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-4 space-y-2">
-              {/* Active events */}
               {active.length > 0 && (
                 <>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">פעיל ({active.length})</p>
@@ -304,7 +299,6 @@ export function BehaviorTile({ memberId }: { memberId?: string }) {
                 </>
               )}
 
-              {/* Archive toggle */}
               {archive.length > 0 && (
                 <div className="pt-2">
                   <button
