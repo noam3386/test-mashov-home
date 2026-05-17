@@ -46,7 +46,7 @@ export function SchoolTomorrowTile() {
   );
 
   const oneWeekAgo = startOfDay(subDays(new Date(), 7));
-  const sevenAhead = startOfDay(addDays(new Date(), 7));
+  const sevenAhead = startOfDay(addDays(new Date(), 8)); // +8 so day 7 is included
   const { doneIds, toggle: toggleHw } = useHomeworkDone();
 
   const pendingHw = schoolUpdates.filter(u =>

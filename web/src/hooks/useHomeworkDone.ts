@@ -13,7 +13,7 @@ export function useHomeworkDone() {
   async function toggle(hwId: string) {
     const ref = doc(db, "tasks", `hw_done_${hwId}`);
     if (doneIds.has(hwId)) {
-      await deleteDoc(ref);
+      await deleteDoc(ref).catch((e) => { if (e.code !== 'not-found') throw e; });
     } else {
       await setDoc(ref, { type: "hw_done", hwId, doneAt: serverTimestamp() });
     }
