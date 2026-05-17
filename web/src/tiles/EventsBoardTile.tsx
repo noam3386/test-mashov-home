@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, where } from "firebase/firestore";
 import { format, isToday, isTomorrow, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import { useRealtimeCollection } from "../hooks/useRealtime";
@@ -62,13 +62,17 @@ function dayLabel(date: Date): string {
   return format(date, "EEEE d/M", { locale: he });
 }
 
-export function EventsBoardTile() {
+export function EventsBoardTile({ memberId }: { memberId?: string }) {
   const now   = new Date();
   const start = startOfDay(now);
   const end   = addDays(start, 3);
 
+  const hwConstraints = memberId
+    ? [where("memberId", "==", memberId), where("type", "==", "homework")]
+    : [where("type", "==", "homework")];
+
   const { data: scheduleEvents } = useRealtimeCollection<ScheduleEvent>("schedule", []);
-  const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", []);
+  const { data: schoolUpdates }  = useRealtimeCollection<SchoolUpdate>("schoolUpdates", hwConstraints);
   const { data: tasks }          = useRealtimeCollection<Task>("tasks", []);
 
   // Build unified event list
@@ -89,9 +93,9 @@ export function EventsBoardTile() {
     });
   }
 
-  // Homework — pending (read=false), due in next 21 days
+  // Homework — pending (read=false), due in next 3 days
   for (const u of schoolUpdates) {
-    if (u.type !== "homework" || u.read) continue;
+    if (u.read) continue;
     const d = u.eventDate?.toDate?.();
     if (!d || d < start || d > end) continue;
     items.push({

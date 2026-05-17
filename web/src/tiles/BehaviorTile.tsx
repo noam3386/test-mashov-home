@@ -30,11 +30,15 @@ function dayLabel(date: Date) {
   return format(date, "d/M", { locale: he });
 }
 
-export function BehaviorTile() {
+export function BehaviorTile({ memberId }: { memberId?: string }) {
   const [open, setOpen] = useState(false);
 
+  const constraints = memberId
+    ? [where("memberId", "==", memberId), where("type", "==", "behavior")]
+    : [where("type", "==", "behavior")];
+
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
-    "schoolUpdates", [where("type", "==", "behavior")]
+    "schoolUpdates", constraints
   );
 
   const events = [...rawEvents]

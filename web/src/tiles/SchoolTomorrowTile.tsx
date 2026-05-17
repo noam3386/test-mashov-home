@@ -34,22 +34,30 @@ function tomorrowDay() {
 
 const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
-export function SchoolTomorrowTile() {
+export function SchoolTomorrowTile({ memberId }: { memberId?: string }) {
   const tomorrow = getTomorrow();
   const tomorrowDayNum = tomorrowDay();
 
+  const ttConstraints = memberId
+    ? [where("memberId", "==", memberId), where("day", "==", tomorrowDayNum)]
+    : [where("day", "==", tomorrowDayNum)];
+
   const { data: timetableRaw, loading: ttLoading } = useRealtimeCollection<TimetableEntry>(
     "timetable",
-    [where("day", "==", tomorrowDayNum)]
+    ttConstraints
   );
   const timetableAll = [...timetableRaw].sort((a, b) => a.lesson - b.lesson);
 
   const sevenDaysAgo  = startOfDay(addDays(new Date(), -7));
   const sevenDaysAhead = startOfDay(addDays(new Date(), 7));
 
+  const suConstraints = memberId
+    ? [where("memberId", "==", memberId), where("type", "in", ["homework", "hatamot"])]
+    : [where("type", "in", ["homework", "hatamot"])];
+
   const { data: schoolUpdates, loading: suLoading } = useRealtimeCollection<SchoolUpdate>(
     "schoolUpdates",
-    [where("type", "in", ["homework", "hatamot"])]
+    suConstraints
   );
 
   const homework = [...schoolUpdates]
