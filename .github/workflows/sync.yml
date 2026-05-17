@@ -2,18 +2,24 @@ name: Sync Dashboard Data
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every hour (calendar + Mashov)
-  workflow_dispatch:        # manual trigger from GitHub UI
+    - cron: "0 * * * *"   # every hour
+  workflow_dispatch:
+    inputs: {}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: scripts/package-lock.json
 
