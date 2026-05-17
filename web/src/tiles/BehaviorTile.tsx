@@ -12,6 +12,9 @@ interface BehaviorEvent {
   justified: number;
   teacherName: string;
   eventDate: Timestamp;
+  remark?: string;
+  groupId?: string;
+  lesson?: number;
 }
 
 const EVENT_STYLE: Record<number, { label: string; color: string; bg: string }> = {
@@ -32,7 +35,8 @@ function dayLabel(date: Date) {
 }
 
 export function BehaviorTile() {
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll]           = useState(false);
+  const [selected, setSelected]         = useState<BehaviorEvent | null>(null);
 
   const { data: rawEvents } = useRealtimeCollection<BehaviorEvent>(
     "schoolUpdates", [where("type", "==", "behavior")]
@@ -61,17 +65,74 @@ export function BehaviorTile() {
             const s    = EVENT_STYLE[ev.eventCode] ?? DEFAULT_STYLE;
             const date = ev.eventDate?.toDate?.();
             return (
-              <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, background: s.bg }}>
+              <div key={ev.id}
+                onClick={() => setSelected(ev)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, background: s.bg, cursor: 'pointer' }}>
                 <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: s.color }}>{ev.categoryName || s.label}</div>
                 {ev.justified === 1 && <span style={{ fontSize: 10, color: 'var(--fd-sage)', fontWeight: 600 }}>✓</span>}
                 <span style={{ fontSize: 10, color: 'var(--fd-faint)', fontFamily: 'var(--fd-font-mono)' }}>
                   {date ? dayLabel(date) : ''}
                 </span>
+                <span style={{ fontSize: 10, color: 'var(--fd-faint)' }}>›</span>
               </div>
             );
           })}
         </div>
       </div>
+
+      {selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 16 }}
+          onClick={() => setSelected(null)}>
+          <div style={{ background: 'var(--fd-card)', borderRadius: 24, width: '100%', maxWidth: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            onClick={e => e.stopPropagation()}>
+            {(() => {
+              const s    = EVENT_STYLE[selected.eventCode] ?? DEFAULT_STYLE;
+              const date = selected.eventDate?.toDate?.();
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--fd-divider)' }}>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: s.color }}>{selected.categoryName || s.label}</span>
+                    <button onClick={() => setSelected(null)}
+                      style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fd-divider)', border: 'none', cursor: 'pointer', color: 'var(--fd-muted)', fontSize: 14 }}>✕</button>
+                  </div>
+                  <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {date && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: 'var(--fd-faint)', fontWeight: 600 }}>תאריך</span>
+                        <span style={{ fontSize: 12, color: 'var(--fd-ink)' }}>{format(date, "EEEE, d בMMMM yyyy", { locale: he })}</span>
+                      </div>
+                    )}
+                    {selected.lesson != null && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: 'var(--fd-faint)', fontWeight: 600 }}>שיעור</span>
+                        <span style={{ fontSize: 12, color: 'var(--fd-ink)' }}>{selected.lesson}</span>
+                      </div>
+                    )}
+                    {selected.teacherName && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: 'var(--fd-faint)', fontWeight: 600 }}>מורה</span>
+                        <span style={{ fontSize: 12, color: 'var(--fd-ink)' }}>{selected.teacherName}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: 'var(--fd-faint)', fontWeight: 600 }}>מוצדק</span>
+                      <span style={{ fontSize: 12, color: selected.justified === 1 ? 'var(--fd-sage)' : 'var(--fd-terra)', fontWeight: 600 }}>
+                        {selected.justified === 1 ? '✓ כן' : '✗ לא'}
+                      </span>
+                    </div>
+                    {selected.remark && (
+                      <div style={{ marginTop: 4, padding: '10px 14px', background: s.bg, borderRadius: 12 }}>
+                        <div style={{ fontSize: 11, color: 'var(--fd-faint)', fontWeight: 600, marginBottom: 4 }}>הערה</div>
+                        <div style={{ fontSize: 13, color: 'var(--fd-ink)', lineHeight: 1.5 }}>{selected.remark}</div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {showAll && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
