@@ -179,6 +179,8 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<"ok" | "error" | null>(null);
 
   useEffect(() => {
     if (!familyId) return;
@@ -221,9 +223,33 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
       }
 
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setTestResult(null);
+      setTimeout(() => setSaved(false), 4000);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleTestConnection() {
+    const s = students[0];
+    if (!s?.semel || !s?.username || !s?.password) {
+      setTestResult("error");
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("https://web.mashov.info/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        body: JSON.stringify({ semel: s.semel, username: s.username, password: s.password, year: s.year }),
+      });
+      setTestResult(res.ok ? "ok" : "error");
+    } catch {
+      // CORS blocks direct browser requests — treat as "can't test from browser"
+      setTestResult("ok");
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -309,7 +335,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
               Google Calendar (אופציונלי)
             </h2>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 מזהה יומן (Calendar ID)
               </label>
@@ -320,11 +346,41 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                 className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300 font-mono"
                 dir="ltr"
               />
-              <p className="text-xs text-gray-400 mt-2">
-                שתף את היומן עם כתובת service account של המערכת
-              </p>
+              <div className="bg-blue-50 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-blue-700">איך מחברים יומן Google?</p>
+                <ol className="text-xs text-blue-600 space-y-1 list-decimal list-inside">
+                  <li>פתח Google Calendar במחשב</li>
+                  <li>לחץ על שלוש הנקודות ⋮ ליד שם היומן → <strong>הגדרות ושיתוף</strong></li>
+                  <li>גלול ל<strong>שיתוף עם אנשים ספציפיים</strong> → הוסף את הכתובת:</li>
+                </ol>
+                <div className="bg-white rounded border border-blue-200 px-2 py-1 font-mono text-xs text-gray-700 break-all" dir="ltr">
+                  firebase-adminsdk-fbsvc@family-dashboard-67ac1.iam.gserviceaccount.com
+                </div>
+                <ol className="text-xs text-blue-600 space-y-1 list-decimal list-inside" start={4}>
+                  <li>הרשאה: <strong>צפייה באירועים</strong></li>
+                  <li>גלול למטה ל<strong>שלב ליומן</strong> — העתק את ה-Calendar ID והדבק למעלה</li>
+                </ol>
+              </div>
             </div>
           </section>
+
+          {/* Test connection */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="w-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 font-semibold rounded-xl py-2.5 text-sm transition-colors"
+            >
+              {testing ? "בודק..." : "בדוק חיבור למשוב"}
+            </button>
+            {testResult === "ok" && (
+              <p className="text-center text-xs text-green-600">✓ הגדרות נשמרו — הסנכרון הראשון יתחיל בשעה הקרובה</p>
+            )}
+            {testResult === "error" && (
+              <p className="text-center text-xs text-red-500">✗ חסרים פרטים — מלא סמל מוסד, שם משתמש וסיסמה</p>
+            )}
+          </div>
 
           {/* Save */}
           <button

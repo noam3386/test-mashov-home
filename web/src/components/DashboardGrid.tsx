@@ -34,7 +34,7 @@ function SyncBadge({ onSettings }: { onSettings: () => void }) {
   const lastSync = useLastSync();
   const label = lastSync
     ? `עודכן ${lastSync.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} — ${lastSync.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}`
-    : "טוען...";
+    : "טרם סונכרן";
   return (
     <div className="text-center text-gray-400 text-xs flex items-center justify-center gap-3 py-1 flex-shrink-0">
       <button
